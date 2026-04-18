@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-os.environ.setdefault("MPLCONFIGDIR", str(BASE_DIR / "outputs" / ".mplconfig"))
+os.environ.setdefault("MPLCONFIGDIR", str(BASE_DIR / ".cache" / "matplotlib"))
 
 import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
@@ -15,12 +15,15 @@ import seaborn as sns
 from matplotlib.ticker import PercentFormatter
 from plotly.offline.offline import get_plotlyjs
 
-RAW_CSV = BASE_DIR / "Airline_Delay_Cause.csv"
-COLUMN_DEFINITIONS_XLSX = BASE_DIR / "Download_Column_Definitions.xlsx"
-OUTPUT_DIR = BASE_DIR / "outputs"
-DATA_DIR = OUTPUT_DIR / "data"
-CHART_DIR = OUTPUT_DIR / "charts"
-DASHBOARD_DIR = OUTPUT_DIR / "dashboard"
+RAW_DIR = BASE_DIR / "data" / "raw"
+PROCESSED_DIR = BASE_DIR / "data" / "processed"
+REPORTS_DIR = BASE_DIR / "reports"
+CHART_DIR = REPORTS_DIR / "charts"
+DASHBOARD_DIR = REPORTS_DIR / "dashboard"
+SUMMARY_DIR = REPORTS_DIR / "summary"
+
+RAW_CSV = RAW_DIR / "Airline_Delay_Cause.csv"
+COLUMN_DEFINITIONS_XLSX = RAW_DIR / "Download_Column_Definitions.xlsx"
 
 READABLE_FULL_STEM = "jfk_airline_delay_readable_full"
 CLEANED_CORE_STEM = "jfk_airline_delay_core_cleaned"
@@ -294,13 +297,13 @@ COLUMN_METADATA = {
 
 
 def ensure_output_directories() -> None:
-    for directory in (DATA_DIR, CHART_DIR, DASHBOARD_DIR):
+    for directory in (PROCESSED_DIR, CHART_DIR, DASHBOARD_DIR, SUMMARY_DIR):
         directory.mkdir(parents=True, exist_ok=True)
 
 
 def save_dataframe(df: pd.DataFrame, stem: str) -> None:
-    df.to_csv(DATA_DIR / f"{stem}.csv", index=False)
-    df.to_excel(DATA_DIR / f"{stem}.xlsx", index=False)
+    df.to_csv(PROCESSED_DIR / f"{stem}.csv", index=False)
+    df.to_excel(PROCESSED_DIR / f"{stem}.xlsx", index=False)
 
 
 def load_raw_data() -> pd.DataFrame:
@@ -1261,7 +1264,7 @@ def build_summary_markdown(
 - These outputs are ready to support later work on frequency models, severity models, and aggregate loss modeling.
 """
 
-    (DATA_DIR / SUMMARY_NOTE_NAME).write_text(summary, encoding="utf-8")
+    (SUMMARY_DIR / SUMMARY_NOTE_NAME).write_text(summary, encoding="utf-8")
 
 
 def main() -> None:
@@ -1288,7 +1291,7 @@ def main() -> None:
     build_summary_markdown(cleaned_df, monthly_summary, cause_summary, airline_profile, cleaning_summary)
 
     print("Outputs written to:")
-    print(f"  Data: {DATA_DIR}")
+    print(f"  Processed data: {PROCESSED_DIR}")
     print(f"  Charts: {CHART_DIR}")
     print(f"  Dashboard: {DASHBOARD_DIR}")
 

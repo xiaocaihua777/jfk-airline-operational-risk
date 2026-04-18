@@ -10,5 +10,5 @@ __pycache__/
 ~$*.xlsx
 ~$*.xls
 
-# Local plotting cache
-outputs/.mplconfig/
+# Local caches
+.cache/
