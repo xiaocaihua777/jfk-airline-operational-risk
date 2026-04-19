@@ -7,6 +7,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[1]
 os.environ.setdefault("MPLCONFIGDIR", str(BASE_DIR / ".cache" / "matplotlib"))
 
+import matplotlib.dates as mdates
 import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,6 +41,7 @@ AIRLINE_NAME_FIXES = {
     "Endeavor Air Inc.": "Endeavor Air",
     "Hawaiian Airlines Network": "Hawaiian Airlines",
     "SkyWest Airlines Inc.": "SkyWest Airlines",
+    "United Air Lines Network": "United Airlines",
 }
 
 READABLE_COLUMN_MAP = {
@@ -354,7 +356,7 @@ def build_column_dictionary() -> pd.DataFrame:
 def build_readable_full_dataset(raw_df: pd.DataFrame) -> pd.DataFrame:
     readable_df = raw_df.drop(columns=["carrier"]).rename(columns=READABLE_COLUMN_MAP)
     readable_df = readable_df[READABLE_COLUMN_ORDER].copy()
-    readable_df[INTEGER_LIKE_COLUMNS] = readable_df[INTEGER_LIKE_COLUMNS].astype(int)
+    readable_df[INTEGER_LIKE_COLUMNS] = readable_df[INTEGER_LIKE_COLUMNS].astype("Int64")
     return readable_df
 
 
@@ -397,11 +399,18 @@ def clean_core_dataset(readable_full_df: pd.DataFrame) -> tuple[pd.DataFrame, di
 
 def build_summaries(cleaned_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     monthly_summary = (
-        cleaned_df.groupby("month", as_index=False)[
+        cleaned_df.groupby(["year", "month"], as_index=False)[
             ["delayed_arrivals_15_plus", "cancelled_arrivals", "total_arrival_flights", "total_arrival_delay_minutes"]
         ]
         .sum()
-        .sort_values("month")
+        .sort_values(["year", "month"])
+    )
+    monthly_summary["year_month"] = (
+        monthly_summary["year"].astype(str) + "-" + monthly_summary["month"].astype(str).str.zfill(2)
+    )
+    monthly_summary["period_start"] = pd.to_datetime(
+        monthly_summary["year_month"] + "-01",
+        format="%Y-%m-%d",
     )
     monthly_summary["delay_rate"] = (
         monthly_summary["delayed_arrivals_15_plus"] / monthly_summary["total_arrival_flights"]
@@ -473,35 +482,41 @@ def save_chart(fig: plt.Figure, filename: str) -> None:
 
 
 def create_monthly_trend_chart(monthly_summary: pd.DataFrame) -> None:
-    fig, ax = plt.subplots(figsize=(13, 7))
-    months = monthly_summary["month"]
+    fig, ax = plt.subplots(figsize=(15, 7))
+    period_dates = monthly_summary["period_start"]
 
     ax.plot(
-        months,
+        period_dates,
         monthly_summary["delayed_arrivals_15_plus"],
         color=CHART_COLORS["primary"],
         marker="o",
-        linewidth=3,
+        markersize=4.5,
+        linewidth=2.6,
         label="Delayed arrivals (15+ min)",
     )
     ax.plot(
-        months,
+        period_dates,
         monthly_summary["cancelled_arrivals"],
         color=CHART_COLORS["secondary"],
         marker="o",
-        linewidth=3,
+        markersize=4.5,
+        linewidth=2.6,
         label="Cancelled arrivals",
     )
-    ax.fill_between(months, monthly_summary["delayed_arrivals_15_plus"], color=CHART_COLORS["primary"], alpha=0.10)
-    ax.fill_between(months, monthly_summary["cancelled_arrivals"], color=CHART_COLORS["secondary"], alpha=0.12)
+    ax.fill_between(period_dates, monthly_summary["delayed_arrivals_15_plus"], color=CHART_COLORS["primary"], alpha=0.10)
+    ax.fill_between(period_dates, monthly_summary["cancelled_arrivals"], color=CHART_COLORS["secondary"], alpha=0.12)
 
     peak_delay = monthly_summary.loc[monthly_summary["delayed_arrivals_15_plus"].idxmax()]
+    median_period = monthly_summary["period_start"].median()
+    text_offset = (-120, -38) if peak_delay["period_start"] > median_period else (22, -38)
+    horizontal_alignment = "right" if peak_delay["period_start"] > median_period else "left"
     ax.annotate(
-        f"Peak delays: Month {int(peak_delay['month'])}\n{int(round(peak_delay['delayed_arrivals_15_plus'])):,}",
-        xy=(peak_delay["month"], peak_delay["delayed_arrivals_15_plus"]),
-        xytext=(peak_delay["month"] + 0.35, peak_delay["delayed_arrivals_15_plus"] * 0.90),
+        f"Peak delays: {peak_delay['year_month']}\n{int(round(peak_delay['delayed_arrivals_15_plus'])):,}",
+        xy=(peak_delay["period_start"], peak_delay["delayed_arrivals_15_plus"]),
+        xytext=text_offset,
+        textcoords="offset points",
         fontsize=11,
-        ha="left",
+        ha=horizontal_alignment,
         va="top",
         color=CHART_COLORS["slate"],
         arrowprops={"arrowstyle": "->", "color": CHART_COLORS["slate"], "lw": 1.3},
@@ -509,11 +524,15 @@ def create_monthly_trend_chart(monthly_summary: pd.DataFrame) -> None:
     )
 
     ax.set_title("Chart 1. Monthly Delay and Cancellation Trend at JFK", fontsize=18, fontweight="bold", loc="left")
-    ax.set_xlabel("Month")
+    ax.set_xlabel("Year-Month")
     ax.set_ylabel("Flights")
-    ax.set_xticks(range(1, 13))
+    ax.set_xlim(period_dates.min(), period_dates.max())
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=3))
     ax.legend(frameon=False, loc="upper left")
     sns.despine(ax=ax)
+    fig.autofmt_xdate(rotation=0)
     save_chart(fig, "chart_1_monthly_trend")
 
 
@@ -629,6 +648,10 @@ def build_dashboard(
     table_records = json.loads(readable_full_df.to_json(orient="records", force_ascii=False))
     core_records = json.loads(cleaned_df.to_json(orient="records", force_ascii=False))
     airline_records = json.loads(airline_profile.to_json(orient="records", force_ascii=False))
+    cleaned_periods = cleaned_df.assign(
+        year_month=cleaned_df["year"].astype(str) + "-" + cleaned_df["month"].astype(str).str.zfill(2)
+    )["year_month"]
+    data_scope = f"All airlines at JFK, {cleaned_periods.min()} to {cleaned_periods.max()}"
 
     html_template = """<!DOCTYPE html>
 <html lang="en">
@@ -874,7 +897,7 @@ def build_dashboard(
       <div class="hero-panel meta-panel">
         <div class="meta-item">
           <span class="label">Dataset scope</span>
-          <span class="value">All airlines at JFK, one full year</span>
+          <span class="value">__DATA_SCOPE__</span>
         </div>
         <div class="meta-item">
           <span class="label">Rows after cleaning</span>
@@ -960,9 +983,14 @@ def build_dashboard(
       { key: "security_delay_minutes", label: "Security", color: "#d1495b" },
       { key: "late_aircraft_delay_minutes", label: "Late Aircraft", color: "#f4a261" }
     ];
-    const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const airlineFilter = document.getElementById("airlineFilter");
     const tableSearch = document.getElementById("tableSearch");
+
+    function getPeriod(row) {
+      return `${row.year}-${String(row.month).padStart(2, "0")}`;
+    }
+
+    const allPeriods = [...new Set(coreData.map(row => getPeriod(row)))].sort();
 
     function formatInteger(value) {
       return Math.round(value).toLocaleString("en-US");
@@ -1048,16 +1076,17 @@ def build_dashboard(
     }
 
     function aggregateMonthly(rows) {
-      const monthMap = new Map();
-      for (let month = 1; month <= 12; month += 1) {
-        monthMap.set(month, { month, delayed: 0, cancelled: 0 });
-      }
+      const periodMap = new Map(allPeriods.map(period => [period, { period, delayed: 0, cancelled: 0 }]));
       rows.forEach(row => {
-        const bucket = monthMap.get(row.month);
+        const period = getPeriod(row);
+        if (!periodMap.has(period)) {
+          periodMap.set(period, { period, delayed: 0, cancelled: 0 });
+        }
+        const bucket = periodMap.get(period);
         bucket.delayed += row.delayed_arrivals_15_plus;
         bucket.cancelled += row.cancelled_arrivals;
       });
-      return [...monthMap.values()];
+      return [...periodMap.values()].sort((a, b) => a.period.localeCompare(b.period));
     }
 
     function renderMonthlyTrend(rows) {
@@ -1067,12 +1096,12 @@ def build_dashboard(
         paper_bgcolor: "rgba(0,0,0,0)",
         plot_bgcolor: "rgba(0,0,0,0)",
         legend: { orientation: "h", y: 1.12 },
-        xaxis: { tickmode: "array", tickvals: monthly.map(d => d.month), ticktext: monthLabels },
+        xaxis: { title: "Year-Month", tickangle: -45, nticks: 14 },
         yaxis: { title: "Flights", rangemode: "tozero", gridcolor: "#d9d2c3" }
       };
       const data = [
         {
-          x: monthly.map(d => d.month),
+          x: monthly.map(d => d.period),
           y: monthly.map(d => d.delayed),
           mode: "lines+markers",
           name: "Delayed arrivals (15+ min)",
@@ -1080,7 +1109,7 @@ def build_dashboard(
           marker: { size: 9 }
         },
         {
-          x: monthly.map(d => d.month),
+          x: monthly.map(d => d.period),
           y: monthly.map(d => d.cancelled),
           mode: "lines+markers",
           name: "Cancelled arrivals",
@@ -1219,6 +1248,7 @@ def build_dashboard(
         .replace("__CORE_DATA__", json.dumps(core_records, ensure_ascii=False))
         .replace("__AIRLINE_RISK_DATA__", json.dumps(airline_records, ensure_ascii=False))
         .replace("__TABLE_COLUMNS__", json.dumps(table_columns, ensure_ascii=False))
+        .replace("__DATA_SCOPE__", data_scope)
         .replace("__FINAL_ROWS__", str(cleaning_summary["final_rows"]))
         .replace("__REMOVED_NO_OPS__", str(cleaning_summary["removed_for_no_operations"]))
         .replace("__REMOVED_LOGIC__", str(cleaning_summary["removed_for_logic_issue"]))
@@ -1239,11 +1269,17 @@ def build_summary_markdown(
     top_cause = cause_summary.iloc[0]
     highest_delay_rate = airline_profile.loc[airline_profile["delay_rate"].idxmax()]
     highest_severity = airline_profile.loc[airline_profile["average_delay_minutes_per_delayed_flight"].idxmax()]
+    cleaned_periods = cleaned_df.assign(
+        year_month=cleaned_df["year"].astype(str) + "-" + cleaned_df["month"].astype(str).str.zfill(2)
+    )["year_month"]
+    coverage_start = cleaned_periods.min()
+    coverage_end = cleaned_periods.max()
 
     summary = f"""# JFK Operational Risk Descriptive Summary
 
 ## Data cleaning
 
+- Data coverage after cleaning: {coverage_start} to {coverage_end}
 - Raw rows: {cleaning_summary["initial_rows"]}
 - Removed because total arrival flights were missing or zero: {cleaning_summary["removed_for_no_operations"]}
 - Removed because delayed arrivals exceeded total arrivals: {cleaning_summary["removed_for_logic_issue"]}
@@ -1251,8 +1287,8 @@ def build_summary_markdown(
 
 ## Descriptive insights
 
-- Peak monthly delay volume occurred in month {int(peak_delay_month["month"])} with {int(round(peak_delay_month["delayed_arrivals_15_plus"])):,} delayed arrivals.
-- Peak monthly cancellation volume occurred in month {int(peak_cancel_month["month"])} with {int(round(peak_cancel_month["cancelled_arrivals"])):,} cancelled arrivals.
+- Peak monthly delay volume occurred in {peak_delay_month["year_month"]} with {int(round(peak_delay_month["delayed_arrivals_15_plus"])):,} delayed arrivals.
+- Peak monthly cancellation volume occurred in {peak_cancel_month["year_month"]} with {int(round(peak_cancel_month["cancelled_arrivals"])):,} cancelled arrivals.
 - The largest delay-severity driver was {top_cause["cause"]}, contributing {top_cause["share_of_total_delay_minutes"]:.1%} of total delay minutes.
 - The highest delay-rate airline was {highest_delay_rate["airline_name"]} at {highest_delay_rate["delay_rate"]:.1%}.
 - The highest average delay severity was {highest_severity["airline_name"]} at {highest_severity["average_delay_minutes_per_delayed_flight"]:.1f} minutes per delayed flight.

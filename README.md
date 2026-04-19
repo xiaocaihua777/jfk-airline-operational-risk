@@ -2,9 +2,9 @@
 
 ## Overview | 项目概述
 
-This repository contains a reproducible data-preparation and descriptive-analysis workflow for an operational risk management project on airline delays, cancellations, and diversions at John F. Kennedy International Airport (JFK).
+This repository contains a reproducible data-preparation and descriptive-analysis workflow for an operational risk management project on airline delays, cancellations, and diversions at John F. Kennedy International Airport (JFK). The current dataset covers monthly JFK airline operations from 2020 to 2025.
 
-本仓库用于支持一个关于纽约肯尼迪国际机场（JFK）航班延误、取消与改降风险的运营风险管理项目，包含可复现的数据整理、描述性分析、图表输出与交互式看板。
+本仓库用于支持一个关于纽约肯尼迪国际机场（JFK）航班延误、取消与改降风险的运营风险管理项目，包含可复现的数据整理、描述性分析、图表输出与交互式看板。当前数据集覆盖 2020 年至 2025 年的 JFK 航司月度运营数据。
 
 ## Research focus | 研究主题
 
@@ -19,10 +19,10 @@ This repository contains a reproducible data-preparation and descriptive-analysi
 ## Data source | 数据来源
 
 - BTS On-Time Performance dataset
-- Scope used in this project: one year of JFK arrival data covering all airlines in the selected sample
+- Scope used in this project: multi-year JFK arrival data from 2020 to 2025 covering all airlines in the selected sample
 
 - 数据集来源：BTS On-Time Performance
-- 本项目使用范围：JFK 机场一年期到达航班数据，覆盖样本中的全部航司
+- 本项目使用范围：2020 年至 2025 年 JFK 机场多年份到达航班数据，覆盖样本中的全部航司
 
 ## Repository structure | 仓库结构
 
@@ -135,7 +135,7 @@ If someone does not have write access, they should fork the repository first, th
 - `jfk_column_dictionary`
   Data dictionary linking original BTS fields to readable names and plain-language definitions.
 - `jfk_monthly_risk_summary`
-  Monthly totals for delays, cancellations, flights, and delay minutes.
+  Year-month totals for delays, cancellations, flights, and delay minutes.
 - `jfk_delay_cause_summary`
   Delay-minute totals and shares by cause.
 - `jfk_airline_risk_profile`
@@ -148,7 +148,7 @@ If someone does not have write access, they should fork the repository first, th
 - `jfk_column_dictionary`
   原始 BTS 字段、可读字段名与通俗解释之间的对应表。
 - `jfk_monthly_risk_summary`
-  各月份的延误、取消、航班量与总延误分钟汇总。
+  各年月的延误、取消、航班量与总延误分钟汇总。
 - `jfk_delay_cause_summary`
   各类延误原因对应的总延误分钟与占比。
 - `jfk_airline_risk_profile`
@@ -164,18 +164,18 @@ If someone does not have write access, they should fork the repository first, th
 - 当航司在该月存在运营时，将缺失的延误分钟字段填充为 `0`。
 - 删除“延误航班数大于总到达航班数”的逻辑异常记录。
 
-For this JFK sample, no rows were removed by these rules, but the checks are retained for reproducibility and future modeling work.
+For the current 2020-2025 JFK sample, one row was removed because total arrival flights were missing or zero. The checks are retained for reproducibility and future modeling work.
 
-在这份 JFK 样本中，以上规则最终没有删除任何记录，但这些规则会保留下来，以保证流程可复现，并服务于后续建模。
+在当前 2020-2025 JFK 样本中，有 1 条记录因总到达航班数缺失或为 0 被删除。这些规则会保留下来，以保证流程可复现，并服务于后续建模。
 
 ## Visual outputs | 可视化输出
 
-- Chart 1: Monthly delayed arrivals vs cancelled arrivals
+- Chart 1: Multi-year monthly delayed arrivals vs cancelled arrivals
 - Chart 2: Delay-cause donut chart with total delay minutes at the center
 - Chart 3: Airline risk profiling scatter plot
 - Offline dashboard with filtering, interactive charts, and a readable data table
 
-- 图 1：月度延误航班与取消航班趋势图
+- 图 1：多年份月度延误航班与取消航班趋势图
 - 图 2：带中心总延误分钟的延误原因环形图
 - 图 3：航司风险画像散点图
 - 离线交互式看板，支持筛选、交互图表与数据表浏览
