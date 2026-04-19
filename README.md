@@ -96,9 +96,9 @@ Open `reports/dashboard/jfk_operational_risk_dashboard.html` in any modern brows
 
 ## Collaboration workflow | 协作开发流程
 
-If someone wants to continue building on this repository with write access, the recommended workflow is:
+To continue building on this repository, use a feature branch and keep changes reproducible:
 
-如果其他人获得了这个仓库的写权限，推荐按下面的流程继续开发：
+如需在本仓库基础上继续开发，建议使用功能分支，并保持结果可复现：
 
 ```bash
 git clone https://github.com/simonxrwang/jfk-airline-operational-risk.git
@@ -121,10 +121,6 @@ git push -u origin feat/your-change
 Then open a Pull Request on GitHub to merge the branch back into `main`.
 
 之后在 GitHub 上发起 Pull Request，再把该分支合并回 `main`。
-
-If someone does not have write access, they should fork the repository first, then work from their own fork and submit a Pull Request back to this repository.
-
-如果对方没有写权限，应该先 fork 本仓库，再在自己的 fork 上开发，最后向本仓库发起 Pull Request。
 
 ## Main outputs | 主要输出文件
 
@@ -154,6 +150,12 @@ If someone does not have write access, they should fork the repository first, th
 - `jfk_airline_risk_profile`
   各航司层面的风险指标，如延误率、取消率和平均延误严重程度。
 
+## Schema note | 字段说明
+
+The core cleaned dataset keeps the same analysis-ready field names used in the earlier single-year workflow. Because the project now covers multiple years, `jfk_monthly_risk_summary` includes `year`, `year_month`, and `period_start` so monthly trends are not incorrectly merged across different years.
+
+核心清洗数据表保留了此前单一年份流程中使用的分析字段名。由于当前项目已经扩展为多年份数据，`jfk_monthly_risk_summary` 额外保留 `year`、`year_month` 与 `period_start`，避免不同年份的同一月份在趋势分析中被错误合并。
+
 ## Data-cleaning logic | 数据清洗逻辑
 
 - Drop rows where total arrival flights are missing or equal to zero.
@@ -174,11 +176,13 @@ For the current 2020-2025 JFK sample, one row was removed because total arrival 
 - Chart 2: Delay-cause donut chart with total delay minutes at the center
 - Chart 3: Airline risk profiling scatter plot
 - Offline dashboard with filtering, interactive charts, and a readable data table
+- Static charts are exported as both PNG and SVG. The current chart style uses a muted presentation-friendly palette and system-safe fonts so PNG and SVG stay visually consistent across environments.
 
 - 图 1：多年份月度延误航班与取消航班趋势图
 - 图 2：带中心总延误分钟的延误原因环形图
 - 图 3：航司风险画像散点图
 - 离线交互式看板，支持筛选、交互图表与数据表浏览
+- 静态图表同时导出 PNG 与 SVG。当前图表使用更适合展示的柔和配色，并采用系统安全字体，以保证 PNG 与 SVG 在不同环境中尽量保持一致。
 
 ## Next step | 下一步
 

@@ -16,6 +16,12 @@
 - The highest delay-rate airline was Hawaiian Airlines at 34.9%.
 - The highest average delay severity was Envoy Air at 90.7 minutes per delayed flight.
 
+## Output update note
+
+- The core cleaned dataset keeps the same field names as the earlier single-year workflow.
+- The monthly summary includes `year`, `year_month`, and `period_start` to support the current multi-year timeline.
+- The static charts and offline dashboard were refreshed with a softer presentation palette and system-safe fonts for consistent PNG and SVG rendering.
+
 ## Modeling handoff note
 
 - The cleaned core dataset preserves frequency variables such as delayed arrivals and cancellations.
