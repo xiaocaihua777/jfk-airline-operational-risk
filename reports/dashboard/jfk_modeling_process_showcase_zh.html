@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JFK Operational Risk Showcase · 中文展示版</title>
+  <style>
+    :root {
+      --bg: #d7ddd9;
+      --page: #f7f5ef;
+      --ink: #11212b;
+      --muted: #60707a;
+      --line: rgba(17, 33, 43, 0.14);
+      --primary: #11212b;
+      --accent: #d56f33;
+      --shadow: 0 28px 50px rgba(10, 20, 30, 0.14);
+      --font-body: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+      --font-display: "Georgia", "Times New Roman", serif;
+      --font-mono: "Consolas", monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background:
+        radial-gradient(circle at 18% 14%, rgba(213, 111, 51, 0.10), transparent 22%),
+        radial-gradient(circle at 82% 8%, rgba(17, 33, 43, 0.10), transparent 20%),
+        linear-gradient(180deg, #eef1ec 0%, #d7ddd9 100%);
+      color: var(--ink);
+      font-family: var(--font-body);
+      padding: 26px;
+      min-height: 100vh;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+      background-size: 36px 36px;
+      opacity: 0.28;
+    }
+    .report-stack { position: relative; z-index: 1; width: fit-content; margin: 0 auto; }
+    .report-page {
+      width: 1017px;
+      height: 720px;
+      min-width: 1017px;
+      max-width: 1017px;
+      min-height: 720px;
+      max-height: 720px;
+      overflow: hidden;
+      background: var(--page);
+      border-radius: 34px;
+      box-shadow: var(--shadow);
+      margin: 0 auto 28px;
+      border: 1px solid rgba(17, 33, 43, 0.08);
+      position: relative;
+    }
+    .report-page::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.00), rgba(255,255,255,0.16)),
+        linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 48%, transparent 100%);
+      opacity: 0.65;
+    }
+    .report-page.dark { background: linear-gradient(145deg, #10202b, #18303a 58%, #223540); color: #eef5f4; }
+    .report-page.ink { background: linear-gradient(180deg, #edf1ee, #f7f5ef); }
+    .hd, .ct { position: relative; z-index: 1; }
+    .hd {
+      height: 72px;
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(17, 33, 43, 0.10);
+    }
+    .dark .hd, .dark .sm { border-color: rgba(255,255,255,0.10); }
+    .ct { height: 648px; padding: 12px 30px 14px; overflow: hidden; }
+    .dark .page-title, .dark .chapter-tag { color: #e6efee; }
+    .chapter-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(17, 33, 43, 0.07);
+      color: var(--primary);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .dark .chapter-tag { background: rgba(255,255,255,0.10); }
+    .page-title { font-size: 14px; font-weight: 700; color: var(--primary); }
+    .section-kicker {
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .dark .section-kicker { color: #f0b996; }
+    .big-claim {
+      font-size: 36px;
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+      max-width: 15ch;
+      color: var(--primary);
+    }
+    .big-claim.narrow { max-width: 17ch; }
+    .dark .big-claim { color: #f4fbfa; }
+    .claim-text {
+      margin-top: 12px;
+      max-width: 62ch;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+    .dark .claim-text { color: rgba(238, 245, 244, 0.80); }
+
+    .split { height: 568px; display: grid; grid-template-columns: 1.04fr 0.96fr; gap: 18px; }
+    .split.compact { height: 220px; margin-top: 16px; }
+    .split-hero { grid-template-columns: 1.02fr 0.98fr; }
+    .split-bias { grid-template-columns: 1.08fr 0.92fr; }
+    .stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .stack.spacious { gap: 16px; }
+    .finale { height: 568px; display: flex; flex-direction: column; }
+
+    .poster { height: 568px; display: grid; grid-template-columns: 1.16fr 0.84fr; grid-template-rows: 1fr 86px; gap: 16px 18px; }
+    .poster-copy { padding: 18px 0 0; display: flex; flex-direction: column; justify-content: center; }
+    .eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(238, 245, 244, 0.76); font-weight: 700; }
+    .poster-copy h1 { margin-top: 18px; font-size: 54px; line-height: 0.98; letter-spacing: -0.04em; max-width: 11ch; }
+    .poster-copy p { margin-top: 18px; max-width: 58ch; font-size: 14px; line-height: 1.72; color: rgba(238, 245, 244, 0.82); }
+    .poster-line { margin-top: 18px; width: 88px; height: 4px; border-radius: 999px; background: linear-gradient(90deg, var(--accent), rgba(255,255,255,0.18)); }
+    .poster-caption { margin-top: 16px; max-width: 58ch; font-size: 12px; line-height: 1.7; color: rgba(238, 245, 244, 0.72); }
+    .poster-stats { display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+    .poster-roadmap { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; align-self: end; }
+    .poster-roadmap span { display: flex; align-items: center; justify-content: center; min-height: 72px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); font-size: 11px; letter-spacing: 0.05em; }
+
+    .stat-block { min-height: 96px; padding: 14px 16px; background: rgba(255,255,255,0.74); border: 1px solid rgba(17, 33, 43, 0.08); border-radius: 22px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+    .stat-block.light { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.12); }
+    .stat-block.accent { background: rgba(213, 111, 51, 0.10); border-color: rgba(213, 111, 51, 0.18); }
+    .stat-block.muted { background: rgba(17, 33, 43, 0.05); }
+    .stat-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+    .light .stat-label, .dark .stat-label { color: rgba(238, 245, 244, 0.72); }
+    .stat-value { font-size: 28px; line-height: 1; font-weight: 700; color: var(--primary); font-family: var(--font-display); }
+    .dark .stat-value, .light .stat-value { color: #f4fbfa; }
+    .stat-note { font-size: 11px; line-height: 1.45; color: var(--muted); }
+    .dark .stat-note, .light .stat-note { color: rgba(238, 245, 244, 0.78); }
+
+    .panel, .visual-block { padding: 16px 18px; border-radius: 24px; background: rgba(255,255,255,0.64); border: 1px solid rgba(17, 33, 43, 0.08); backdrop-filter: blur(6px); }
+    .panel.primary { background: rgba(17, 33, 43, 0.92); color: #eef5f4; border-color: rgba(17, 33, 43, 0.94); }
+    .panel.warning { background: rgba(213, 111, 51, 0.10); border-color: rgba(213, 111, 51, 0.22); }
+    .dark .panel:not(.primary) { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.10); color: #eef5f4; }
+    .panel-title { font-size: 11px; letter-spacing: 0.10em; text-transform: uppercase; font-weight: 700; color: var(--muted); margin-bottom: 12px; }
+    .primary .panel-title { color: rgba(238, 245, 244, 0.72); }
+    .dark .panel-title, .dark .visual-caption { color: rgba(238, 245, 244, 0.72); }
+    .panel-body { font-size: 12px; line-height: 1.68; color: inherit; }
+    .panel-body p + p, .panel-body ul + p, .panel-body p + ul { margin-top: 8px; }
+    .panel-body ul { padding-left: 18px; }
+    .panel-body li + li { margin-top: 5px; }
+    .formula-box { margin-top: 8px; padding: 10px 12px; border-radius: 16px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.14); font-family: var(--font-mono); font-size: 10px; line-height: 1.55; }
+    .report-page:not(.dark) .formula-box { background: rgba(17, 33, 43, 0.04); border-color: rgba(17, 33, 43, 0.10); }
+
+    .visual-frame {
+      width: 100%;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(17, 33, 43, 0.08);
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246, 244, 239, 0.98));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+    .visual-frame img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center center;
+    }
+    .visual-caption { margin-top: 10px; font-size: 10px; line-height: 1.55; color: var(--muted); }
+    .visual-medium { height: 206px; }
+    .visual-tall { height: 368px; }
+
+    .inline-proof, .step-ribbon { display: flex; flex-wrap: wrap; gap: 10px; }
+    .inline-proof span, .step-ribbon span, .capsule { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 12px; border-radius: 999px; background: rgba(17, 33, 43, 0.06); border: 1px solid rgba(17, 33, 43, 0.08); font-size: 11px; line-height: 1.4; }
+    .dark .inline-proof span, .dark .step-ribbon span { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.10); }
+    .band-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .band-grid.thirds { grid-template-columns: repeat(3, 1fr); }
+
+    .framework-page { height: 568px; display: flex; flex-direction: column; justify-content: space-between; }
+    .framework-board { margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .flow-step { min-height: 146px; padding: 18px; border-radius: 24px; background: rgba(255,255,255,0.76); border: 1px solid rgba(17, 33, 43, 0.08); }
+    .flow-no { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+    .flow-step h3 { margin-top: 10px; font-size: 18px; line-height: 1.15; color: var(--primary); }
+    .flow-step p { margin-top: 10px; font-size: 12px; line-height: 1.65; color: var(--muted); }
+    .framework-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; border-top: 1px solid rgba(17, 33, 43, 0.10); font-size: 12px; line-height: 1.6; color: var(--muted); }
+
+    .choice-lanes { display: flex; flex-direction: column; gap: 14px; }
+    .choice-lane { padding: 16px 18px; border-radius: 24px; background: rgba(255,255,255,0.74); border: 1px solid rgba(17, 33, 43, 0.08); }
+    .lane-head { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: var(--accent); margin-bottom: 12px; }
+    .lane-pair { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .lane-pair div { padding-top: 4px; border-top: 1px solid rgba(17, 33, 43, 0.10); font-size: 12px; line-height: 1.6; }
+    .lane-pair b { display: block; margin-bottom: 6px; font-size: 15px; color: var(--primary); }
+    .lane-pair span { color: var(--muted); }
+
+    .metric-hero, .ratio-panel, .dual-hero, .closing-band, .action-grid, .proof-grid { display: grid; gap: 14px; }
+    .metric-hero { grid-template-columns: 180px 1fr; align-items: center; }
+    .hero-number, .ratio-value, .dual-value { font-size: 88px; line-height: 0.9; letter-spacing: -0.05em; font-family: var(--font-display); color: var(--primary); }
+    .hero-copy h2 { font-size: 30px; line-height: 1.05; max-width: 12ch; color: var(--primary); }
+    .hero-copy p { margin-top: 10px; font-size: 13px; line-height: 1.68; color: var(--muted); }
+    .dual-hero { grid-template-columns: repeat(2, 1fr); }
+    .dual-box { min-height: 180px; border-radius: 26px; padding: 20px; border: 1px solid rgba(17, 33, 43, 0.08); display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+    .dual-box.primary { background: rgba(17, 33, 43, 0.92); color: #eef5f4; }
+    .dual-box.primary .dual-value { color: #eef5f4; }
+    .dual-box.accent { background: rgba(213, 111, 51, 0.10); }
+    .dual-label { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+
+    .reality-page { height: 568px; display: flex; flex-direction: column; }
+    .proof-grid { grid-template-columns: repeat(4, 1fr); margin-top: 18px; }
+    .proof-item { min-height: 184px; padding: 16px; border-radius: 24px; background: rgba(255,255,255,0.72); border: 1px solid rgba(17, 33, 43, 0.08); display: flex; flex-direction: column; gap: 10px; }
+    .proof-title { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+    .proof-highlight { font-size: 20px; line-height: 1.2; color: var(--primary); font-weight: 700; }
+    .proof-text { font-size: 12px; line-height: 1.62; color: var(--muted); }
+
+    .ratio-panel { grid-template-columns: 170px 1fr; align-items: center; min-height: 170px; padding: 18px 20px; border-radius: 28px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); }
+    .ratio-value { color: #eef5f4; }
+    .ratio-copy { font-size: 15px; line-height: 1.62; color: rgba(238, 245, 244, 0.84); }
+
+    .action-grid { margin-top: 20px; grid-template-columns: repeat(4, 1fr); }
+    .action-item { min-height: 206px; padding: 18px; border-radius: 24px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); display: flex; flex-direction: column; gap: 10px; }
+    .action-head { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #f0b996; font-weight: 700; }
+    .action-main { font-size: 18px; line-height: 1.35; font-weight: 700; color: #f4fbfa; }
+    .action-note { font-size: 12px; line-height: 1.65; color: rgba(238, 245, 244, 0.76); }
+    .closing-band { margin-top: 18px; grid-template-columns: repeat(2, 1fr); }
+    .closing-band > div { padding: 18px; border-radius: 24px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); }
+    .closing-title { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #f0b996; font-weight: 700; margin-bottom: 10px; }
+    .closing-band p { font-size: 12px; line-height: 1.7; color: rgba(238, 245, 244, 0.82); }
+
+    .data-table { width: 100%; border-collapse: collapse; font-size: 10.5px; line-height: 1.45; }
+    .data-table thead th { text-align: left; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding-bottom: 8px; border-bottom: 1px solid rgba(17, 33, 43, 0.10); }
+    .data-table tbody td { padding: 7px 0; border-bottom: 1px solid rgba(17, 33, 43, 0.06); vertical-align: top; }
+    .primary .data-table thead th, .primary .data-table tbody td { border-color: rgba(255,255,255,0.12); color: inherit; }
+    .primary .data-table thead th { color: rgba(238, 245, 244, 0.70); }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .report-page { opacity: 0; transform: translateY(16px); animation: page-enter 0.8s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: var(--enter-delay); }
+      .hero-number, .ratio-value, .dual-value, .stat-value { animation: settle 0.9s cubic-bezier(.18,.9,.2,1) both; animation-delay: calc(var(--enter-delay) + 120ms); }
+    }
+    @keyframes page-enter {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes settle {
+      from { opacity: 0; transform: translateY(10px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media print {
+      @page { size: A4 landscape; margin: 8mm; }
+      body { padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body::before { display: none; }
+      .report-page { margin: 0 0 6mm 0; box-shadow: none; border-radius: 0; break-after: page; page-break-after: always; }
+      .report-page:last-child { break-after: auto; page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="report-stack"><section class="report-page dark" style="--enter-delay:0ms;">
+          <div class="hd">
+            <div class="chapter-tag">P00 Cover</div>
+            <div class="page-title">为什么飞机延误值得做成一整套风险项目</div>
+          </div>
+          <div class="ct">
+            <div class="poster">
+  <div class="poster-copy">
+    <div class="eyebrow">JFK Operational Risk Showcase</div>
+    <h1>为什么飞机延误<br>值得被做成一整套风险项目</h1>
+    <p>
+      这不是一份“把结果排版得更好看”的 HTML。
+      这是一份从 <b>选题动机</b>、<b>风险识别</b>、<b>分布选择</b>、
+      <b>状态依赖</b> 到 <b>运营启示</b> 的完整项目展示版。
+    </p>
+    <div class="poster-line"></div>
+    <div class="poster-caption">
+      如果你想让读者感受到“这个项目不只是会跑模型，而是真的设计过方法链”，这就是应该呈现出来的样子。
+    </div>
+  </div>
+  <div class="poster-stats">
+    <div class="stat-block light"><div class="stat-label">样本年份</div><div class="stat-value">2020–2025</div><div class="stat-note">多年度机场月度序列</div></div>
+    <div class="stat-block light"><div class="stat-label">覆盖架次</div><div class="stat-value">657,671</div><div class="stat-note">总到港航班</div></div>
+    <div class="stat-block light"><div class="stat-label">研究粒度</div><div class="stat-value">569 / 72</div><div class="stat-note">airline-month / airport-month</div></div>
+  </div>
+  <div class="poster-roadmap">
+    <span>选题价值</span>
+    <span>风险识别</span>
+    <span>分布抉择</span>
+    <span>状态依赖</span>
+    <span>aggregate risk</span>
+    <span>运营决策</span>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page" style="--enter-delay:70ms;">
+          <div class="hd">
+            <div class="chapter-tag">P01 Motivation</div>
+            <div class="page-title">为什么选择飞机延误作为风险分析对象</div>
+          </div>
+          <div class="ct">
+            <div class="split split-hero">
+  <div class="stack spacious">
+    <div class="section-kicker">Why This Problem</div>
+    <div class="big-claim">延误是最像 operational risk 的机场问题之一。</div>
+    <div class="claim-text">
+      它同时具备真实运营压力、公开可复现数据，以及可以量化的损失代理。
+      这意味着它既能讲现实问题，也能撑起完整方法链，而不只是做一页描述统计。
+      更重要的是，延误、取消、备降之间天然存在传导关系，所以这个题目非常适合把 frequency、severity、dependence 和 aggregate risk 串成一个完整故事。
+    </div>
+    <div class="inline-proof">
+      <span>平均延误率 19.1%</span>
+      <span>平均取消率 3.13%</span>
+      <span>总冲击 14,856,758 分钟</span>
+    </div>
+    <section class="panel"><div class="panel-title">为什么不用 monetary risk 起手</div><div class="panel-body"><p>因为货币化会立刻引入大量难以 defend 的外部假设。相比之下，<b>delay-equivalent minutes</b> 更贴近原始数据，也更适合作为课程项目中的 operational impact proxy。</p><p>这一步其实也让整份项目更诚实：我们承认当前数据最直接支持的是运营冲击而不是财务损失，因此先把 operational risk 讲清楚，再谈可能的成本外推，会比一开始就把所有东西硬换成钱更稳。</p><div class='formula-box'>delay-equivalent minutes = delay minutes + 180 × cancelled arrivals + 240 × diverted arrivals</div></div></section>
+  </div>
+  <div class="stack">
+    <section class="visual-block"><div class="panel-title">多年度运营波动</div><div class="visual-frame visual-tall"><img src="../charts/chart_1_multiyear_monthly_trend.png" alt="多年度运营波动"></div><div class="visual-caption">研究对象不是单个航班，而是持续多年的机场运营压力。</div></section>
+    <div class="band-grid">
+      <div class="stat-block accent"><div class="stat-label">峰值冲击月份</div><div class="stat-value">2023-07</div><div class="stat-note">583,999 分钟</div></div>
+      <div class="stat-block accent"><div class="stat-label">最高延误率月份</div><div class="stat-value">2023-07</div><div class="stat-note">32.7%</div></div>
+    </div>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page ink" style="--enter-delay:140ms;">
+          <div class="hd">
+            <div class="chapter-tag">P02 Architecture</div>
+            <div class="page-title">这份项目到底比普通延误分析多做了什么</div>
+          </div>
+          <div class="ct">
+            <div class="framework-page">
+  <div class="section-kicker">Project Architecture</div>
+  <div class="big-claim narrow">这份项目的价值，不在某一个模型，而在整条方法链。</div>
+  <div class="framework-board">
+    <div class="flow-step">
+      <div class="flow-no">01</div>
+      <h3>Risk Identification</h3>
+      <p>先从 BTS cause taxonomy 出发，把原始原因重写成 internal / system / external。</p>
+    </div>
+    <div class="flow-step">
+      <div class="flow-no">02</div>
+      <h3>Frequency</h3>
+      <p>判断扰动到达过程更像均匀计数，还是已经出现 clustering 与 over-dispersion。</p>
+    </div>
+    <div class="flow-step">
+      <div class="flow-no">03</div>
+      <h3>Severity</h3>
+      <p>判断分钟损失的主体形状和尾部结构是不是可以用同一种分布解释。</p>
+    </div>
+    <div class="flow-step">
+      <div class="flow-no">04</div>
+      <h3>State Dependence</h3>
+      <p>把机场月度状态从“高风险月份识别”升级到“坏状态会不会延续”。</p>
+    </div>
+    <div class="flow-step">
+      <div class="flow-no">05</div>
+      <h3>Aggregate Risk</h3>
+      <p>把频率、严重度和依赖结构收束成 annual impact 的情景结果。</p>
+    </div>
+    <div class="flow-step">
+      <div class="flow-no">06</div>
+      <h3>Operator Actions</h3>
+      <p>最后把统计输出翻译成运营商可以提前做什么、重点管什么。</p>
+    </div>
+  </div>
+  <div class="framework-footer">
+    <div>这就是它区别于“普通延误分析”的地方：不是只有结论，而是每一步都能解释为什么这样做。</div>
+    <div class="capsule">from real operation problem to management action</div>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page" style="--enter-delay:210ms;">
+          <div class="hd">
+            <div class="chapter-tag">P03 Risk Language</div>
+            <div class="page-title">为什么风险分类不能直接照搬原始 taxonomy</div>
+          </div>
+          <div class="ct">
+            <div class="split">
+  <div class="stack">
+    <div class="section-kicker">Risk Language</div>
+    <div class="big-claim narrow">为什么风险分类不能直接照搬 BTS taxonomy。</div>
+    <section class="panel primary"><div class="panel-title">分类逻辑</div><div class="panel-body"><p>原始字段是数据库语言，不是管理语言。课程里的风险识别更看重责任边界、控制手段和管理动作，所以要把 cause 重新组织成 <b>internal / system / external</b>。</p><p>例如 <b>Late Aircraft</b> 在原始表里是单独原因，但从运营链条看，它往往不是独立世界，而是前序航班延误、机组恢复、维修衔接失稳后的传导结果，因此更适合放回 internal disruption 的语义里。</p><p>这一步不是显著性检验，而是风险识别框架重写。</p></div></section>
+    <section class="panel"><div class="panel-title">从原始原因到课程语言</div><div class="panel-body"><table class="data-table tight-table"><thead><tr><th>原始 causes</th><th>课程风险块</th><th>分钟占比</th></tr></thead><tbody><tr><td>Airline + Late Aircraft</td><td>internal</td><td>71.3%</td></tr><tr><td>NAS</td><td>system</td><td>24.3%</td></tr><tr><td>Weather + Security</td><td>external</td><td>4.4%</td></tr></tbody></table></div></section>
+    <div class="band-grid thirds">
+      <div class="stat-block accent"><div class="stat-label">Internal</div><div class="stat-value">71.3%</div><div class="stat-note">Airline + Late Aircraft</div></div>
+      <div class="stat-block muted"><div class="stat-label">System</div><div class="stat-value">24.3%</div><div class="stat-note">NAS</div></div>
+      <div class="stat-block muted"><div class="stat-label">External</div><div class="stat-value">4.4%</div><div class="stat-note">Weather + Security</div></div>
+    </div>
+  </div>
+  <div class="stack">
+    <section class="visual-block"><div class="panel-title">风险识别热力图</div><div class="visual-frame visual-medium"><img src="../charts/chart_3_risk_heatmap.png" alt="风险识别热力图"></div><div class="visual-caption">risk identification 是项目起点，不是建模后的附属说明。</div></section>
+    <section class="visual-block"><div class="panel-title">原始原因结构</div><div class="visual-frame visual-medium"><img src="../charts/chart_2_delay_cause_breakdown.png" alt="原始原因结构"></div><div class="visual-caption">最大延误原因仍是 Airline，占总延误分钟 36.2%。</div></section>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page" style="--enter-delay:280ms;">
+          <div class="hd">
+            <div class="chapter-tag">P04 Model Choice</div>
+            <div class="page-title">为什么只比较这四个分布，以及怎么选</div>
+          </div>
+          <div class="ct">
+            <div class="split">
+  <div class="stack">
+    <div class="section-kicker">Distribution Choice</div>
+    <div class="big-claim narrow">我们不是在堆分布，而是在回答两个不同的问题。</div>
+    <div class="choice-lanes">
+      <div class="choice-lane">
+        <div class="lane-head">Frequency</div>
+        <div class="lane-pair">
+          <div><b>Poisson</b><span>均值与方差接近时的基础计数世界。</span></div>
+          <div><b>Negative Binomial</b><span>更适合事件聚集、方差大于均值的高波动世界。</span></div>
+        </div>
+      </div>
+      <div class="choice-lane">
+        <div class="lane-head">Severity</div>
+        <div class="lane-pair">
+          <div><b>Lognormal</b><span>右偏长尾，适合大多数月份不极端、少数月份拉长尾部。</span></div>
+          <div><b>Weibull</b><span>形状更灵活，用来检验分钟损失是否属于另一类右偏结构。</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="stack">
+    <section class="panel primary"><div class="panel-title">AIC 是怎么用的</div><div class="panel-body"><p><b>AIC = 2k - 2\ln(L)</b>。它不是 p-value，不负责回答“显著不显著”，而是负责在同一候选集里平衡拟合质量与模型复杂度。</p><p>所以 AIC 的逻辑不是“证明这个分布是真的”，而是“在当前候选集里，这个分布作为工作模型更合适”。这也是为什么报告里要反复强调 relative fit，而不是 absolute truth。</p><div class='formula-box'>候选模型拟合 → 参数估计 → 计算 AIC → 选择 AIC 更低者</div></div></section>
+    <section class="panel"><div class="panel-title">怎样读结果</div><div class="panel-body"><p>我们不仅看谁最低，也看低了多少。比如 Frequency 里 <b>总延误班次</b> 的 ΔAIC 达到 <b>169,085.5</b>，说明优势不是边缘性的；Severity 里最清晰的是 <b>系统 / NAS 平均分钟</b>，ΔAIC 为 <b>117.1</b>。</p><p>换句话说，AIC 让我们在“候选分布为什么这样定”和“最后为什么这样选”之间搭起了一座桥。没有这一页，后面的结果页很容易被读成黑箱。</p></div></section>
+    <div class="step-ribbon">
+      <span>候选集要小而合理</span>
+      <span>比较标准要统一</span>
+      <span>解释口吻要跟着 ΔAIC 强弱走</span>
+    </div>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page" style="--enter-delay:350ms;">
+          <div class="hd">
+            <div class="chapter-tag">P05 Frequency</div>
+            <div class="page-title">Frequency 结果告诉了我们什么</div>
+          </div>
+          <div class="ct">
+            <div class="split split-bias">
+  <div class="stack spacious">
+    <div class="section-kicker">Frequency Finding</div>
+    <div class="metric-hero">
+      <div class="hero-number">6/6</div>
+      <div class="hero-copy">
+        <h2>所有 frequency 变量都选中了 Negative Binomial。</h2>
+        <p>这不是模型偏好，而是数据在反复告诉我们：JFK 的扰动到达并不接近均匀、独立、低波动的 Poisson 世界。</p>
+      </div>
+    </div>
+    <section class="panel primary"><div class="panel-title">最重要的读法</div><div class="panel-body"><p>当方差显著高于均值，且 disrupted 状态下的计数整体抬升时，Poisson 会把真实世界压扁。Negative Binomial 更能容纳事件聚集与高波动。</p><p>这背后的运营含义也很直接：延误不是均匀散落在每个月里，而是会在某些压力月份集中爆发。对管理者来说，这意味着风险不是“平均分摊”的，而是存在高压窗口和恢复压力。</p></div></section>
+    <section class="panel"><div class="panel-title">结果摘录</div><div class="panel-body"><table class="data-table tight-table"><thead><tr><th>变量</th><th>最优模型</th><th>ΔAIC</th><th>均值</th><th>方差</th></tr></thead><tbody><tr><td>总延误班次</td><td>Negative Binomial</td><td>169,085.5</td><td>241.2</td><td>91,192.9</td></tr><tr><td>取消班次</td><td>Negative Binomial</td><td>39,853.3</td><td>32.0</td><td>4,403.5</td></tr><tr><td>备降班次</td><td>Negative Binomial</td><td>2,172.8</td><td>3.3</td><td>29.8</td></tr><tr><td>内部运营扰动次数</td><td>Negative Binomial</td><td>118,678.5</td><td>151.0</td><td>45,234.0</td></tr><tr><td>系统 / NAS 扰动次数</td><td>Negative Binomial</td><td>53,062.7</td><td>82.6</td><td>8,708.6</td></tr><tr><td>外部冲击扰动次数</td><td>Negative Binomial</td><td>3,246.5</td><td>7.6</td><td>69.9</td></tr></tbody></table></div></section>
+  </div>
+  <div class="stack">
+    <section class="visual-block"><div class="panel-title">Frequency AIC 对比</div><div class="visual-frame visual-tall"><img src="../charts/chart_8_frequency_aic_comparison.png" alt="Frequency AIC 对比"></div><div class="visual-caption">ΔAIC 越大，说明较优模型的优势越明确。</div></section>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page" style="--enter-delay:420ms;">
+          <div class="hd">
+            <div class="chapter-tag">P06 Severity</div>
+            <div class="page-title">Severity 结果为什么不能只用一个分布解释</div>
+          </div>
+          <div class="ct">
+            <div class="split split-bias">
+  <div class="stack spacious">
+    <div class="section-kicker">Severity Finding</div>
+    <div class="dual-hero">
+      <div class="dual-box primary">
+        <div class="dual-value">3</div>
+        <div class="dual-label">Lognormal</div>
+      </div>
+      <div class="dual-box accent">
+        <div class="dual-value">1</div>
+        <div class="dual-label">Weibull</div>
+      </div>
+    </div>
+    <div class="claim-text">
+      Severity 没有“一刀切”的统一答案。总体分钟损失和分风险块分钟损失的形状并不完全一样，
+      这反而说明项目不是在把所有变量强塞进同一解释框架。
+      对答辩来说，这一点反而很重要，因为它说明你们没有为了追求整齐而牺牲解释力。
+    </div>
+    <section class="panel primary"><div class="panel-title">结果摘录</div><div class="panel-body"><table class="data-table tight-table"><thead><tr><th>变量</th><th>最优模型</th><th>ΔAIC</th><th>样本量</th><th>扰动态增量</th></tr></thead><tbody><tr><td>总体平均延误分钟</td><td>Weibull</td><td>44.3</td><td>562</td><td>9.3</td></tr><tr><td>内部扰动平均分钟</td><td>Lognormal</td><td>16.2</td><td>559</td><td>5.0</td></tr><tr><td>系统 / NAS 平均分钟</td><td>Lognormal</td><td>117.1</td><td>498</td><td>17.7</td></tr><tr><td>外部冲击平均分钟</td><td>Lognormal</td><td>105.4</td><td>450</td><td>8.1</td></tr></tbody></table></div></section>
+  </div>
+  <div class="stack">
+    <section class="visual-block"><div class="panel-title">Severity AIC 对比</div><div class="visual-frame visual-tall"><img src="../charts/chart_9_severity_aic_comparison.png" alt="Severity AIC 对比"></div><div class="visual-caption">分钟损失的工作模型随变量而变，说明形状层次确实不同。</div></section>
+    <section class="panel"><div class="panel-title">为什么这是好事</div><div class="panel-body"><p>最清晰的变量是 <b>系统 / NAS 平均分钟</b>，ΔAIC 为 <b>117.1</b>。这不是让结论更混乱，而是让解释更贴近变量本身。</p><p>如果所有 severity 变量都机械地落在同一种分布上，反而要怀疑是不是候选集太窄、或解释过度简化。当前结果更像真实世界：不同风险块的分钟损失尾部并不完全一样。</p></div></section>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page" style="--enter-delay:490ms;">
+          <div class="hd">
+            <div class="chapter-tag">P07 Reality Check</div>
+            <div class="page-title">模型结果是否真的符合客观事实</div>
+          </div>
+          <div class="ct">
+            <div class="reality-page">
+  <div class="section-kicker">Reality Check</div>
+  <div class="big-claim narrow">真正让项目站得住的，不是跑出模型，而是模型说的话和客观事实对得上。</div>
+  <div class="proof-grid">
+    <div class="proof-item"><div class="proof-title">计数型扰动不是均匀到达</div><div class="proof-highlight">6/6 个 frequency 变量全部选中 Negative Binomial</div><div class="proof-text">说明方差显著高于均值，Poisson 过于理想化。</div></div><div class="proof-item"><div class="proof-title">主要风险确实来自内部运行链条</div><div class="proof-highlight">internal 分钟占比 71.3%</div><div class="proof-text">与原始 cause 结构一致，不是为了好讲而重命名。</div></div><div class="proof-item"><div class="proof-title">坏状态有持续性</div><div class="proof-highlight">P(D→D)=0.471 > P(N→D)=0.185</div><div class="proof-text">说明系统进入扰动态后，恢复并不是自动完成。</div></div><div class="proof-item"><div class="proof-title">高峰情景更危险</div><div class="proof-highlight">节假日高峰情景 的 VaR95 最高</div><div class="proof-text">与节假日和高压运行更脆弱的现实经验一致。</div></div>
+  </div>
+  <div class="split compact">
+    <div class="stack">
+      <section class="visual-block"><div class="panel-title">状态影响差异</div><div class="visual-frame visual-medium"><img src="../charts/chart_4_disruption_state_impact.png" alt="状态影响差异"></div><div class="visual-caption">normal / disrupted 的影响差异是可以在图上直接看到的。</div></section>
+    </div>
+    <div class="stack">
+      <section class="panel warning"><div class="panel-title">一句话总结</div><div class="panel-body"><p>Negative Binomial 对应“方差远大于均值”的现实，internal 风险主导对应原始延误原因结构，holiday peak 风险最高符合高峰运行更脆弱的直觉，而 P(D→D) 高于 P(N→D) 则对应系统进入坏状态后恢复更慢的经验。</p><p>这一页的作用，其实是告诉听众：这份项目不是“统计结果看起来漂亮”，而是“统计结果和现实运行逻辑相互印证”。</p></div></section>
+    </div>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page" style="--enter-delay:560ms;">
+          <div class="hd">
+            <div class="chapter-tag">P08 Why Markov</div>
+            <div class="page-title">为什么我们想做 Markov 分析</div>
+          </div>
+          <div class="ct">
+            <div class="split">
+  <div class="stack">
+    <div class="section-kicker">State Design</div>
+    <div class="big-claim narrow">我们想做 Markov，不是为了多加一个方法，而是想回答“坏月份会不会延续”这个前面几层回答不了的问题。</div>
+    <section class="panel primary"><div class="panel-title">为什么我们会想做 Markov</div><div class="panel-body"><p>Frequency 和 severity 能告诉我们扰动出现得多不多、严重到什么程度，但它们默认看到的是“单个月份的分布形状”。</p><p>对机场运营来说，这还不够。管理者更关心的是：如果这个月已经进入高压状态，下个月会不会更容易继续坏下去？如果答案是会，那么运营风险就不只是单点冲击，而是带有持续性和恢复压力的过程。</p><p>所以 Markov 在这里的任务，是把问题从“高风险月份识别”升级为“状态会不会延续”。</p></div></section>
+    <section class="panel warning"><div class="panel-title">为什么要先把状态定义清楚</div><div class="panel-body"><p>只有先把每个月定义成 <b>normal</b> 或 <b>disrupted</b>，后面才谈得上转移。否则所谓的 Markov 只是术语，没有稳定的状态基础。</p><p><b>delay_cancel_impact_composite</b> 与 <b>impact_q75</b> 的 disrupted share 都是 <b>25.0%</b>，但前者跨年波动更低：<b>0.152</b> vs <b>0.186</b>。这意味着 composite rule 更适合拿来做状态依赖分析，因为它更稳定，也更像综合运营压力。</p><div class='formula-box'>composite = z(delay rate) + z(cancellation rate) + z(impact minutes)</div></div></section>
+  </div>
+  <div class="stack">
+    <section class="visual-block"><div class="panel-title">状态规则比较</div><div class="visual-frame visual-medium"><img src="../charts/chart_10_state_rule_comparison.png" alt="状态规则比较"></div><div class="visual-caption">先证明状态定义是稳定的，后面的转移分析才有意义。</div></section>
+    <section class="panel"><div class="panel-title">什么样的结果才说明做 Markov 有意义</div><div class="panel-body"><p>如果转移结果显示 <b>P(D→D)</b> 和 <b>P(N→D)</b> 差不多，那么 Markov 只会告诉我们“坏状态没有明显惯性”，那它的附加价值就有限。</p><p>相反，如果进入 disrupted 之后继续留在 disrupted 的概率明显更高，就说明状态依赖确实存在，做 Markov 就不是多余的，而是在揭示前面分布模型看不到的时间结构。</p><p>也正因为如此，多年度样本扩展到 <b>72</b> 个 airport-month 后，Markov 才真正值得做。</p></div></section>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page ink" style="--enter-delay:630ms;">
+          <div class="hd">
+            <div class="chapter-tag">P09 Markov Result</div>
+            <div class="page-title">Markov 结果为什么说明这一步有意义</div>
+          </div>
+          <div class="ct">
+            <div class="split split-hero">
+  <div class="stack spacious">
+    <div class="section-kicker">Markov Insight</div>
+    <div class="ratio-panel">
+      <div class="ratio-value">2.54x</div>
+      <div class="ratio-copy">结果表明，进入 disrupted 之后继续停留在 disrupted 的概率，约是正常月直接跌入 disrupted 的 <b>2.54</b> 倍。</div>
+    </div>
+    <section class="panel primary"><div class="panel-title">结果为什么说明做 Markov 是有意义的</div><div class="panel-body"><p><b>P(N→D) = 0.185</b>，而 <b>P(D→D) = 0.471</b>。这说明坏状态不是随机独立地散落在时间线上，而是存在明显的延续倾向。</p><p>也就是说，Markov 在这里确实补充了新信息：如果只看前面的 frequency 和 severity，你知道风险高不高；但做了 Markov 之后，你还能知道系统一旦变坏，会不会更难立刻恢复。</p><p>因此，这一步不是重复已有结论，而是在证明“状态依赖”本身值得被纳入项目框架。</p></div></section>
+    <section class="panel"><div class="panel-title">最终结果应该怎样解释</div><div class="panel-body"><p>坏状态不是吸收态，因为 <b>P(D→N) = 0.529</b> 仍然高于 <b>P(D→D)</b>，说明系统仍有恢复能力；但 <b>P(D→D)</b> 明显高于 <b>P(N→D)</b>，又说明恢复并不是自动完成的。</p><p>所以最稳妥的课堂口径是：<b>JFK 的月度运营状态存在有说服力的经验性状态依赖</b>。这不是过度夸大的强统计证明，但已经足以支持“坏月份会带来后续恢复压力”的管理解释。</p></div></section>
+    <div class="step-ribbon">
+      <span>先有动机：想知道坏状态会不会延续</span>
+      <span>再有结论：结果表明确实存在延续倾向</span>
+    </div>
+  </div>
+  <div class="stack">
+    <section class="visual-block"><div class="panel-title">两状态转移矩阵</div><div class="visual-frame visual-tall"><img src="../charts/chart_7_markov_transition_matrix.png" alt="两状态转移矩阵"></div><div class="visual-caption">Markov 的价值不只是给出矩阵，而是说明坏状态比随机跌入更容易延续。</div></section>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page" style="--enter-delay:700ms;">
+          <div class="hd">
+            <div class="chapter-tag">P10 Aggregate Risk</div>
+            <div class="page-title">最终 annual impact 在不同情景下会怎样移动</div>
+          </div>
+          <div class="ct">
+            <div class="split">
+  <div class="stack">
+    <div class="section-kicker">Aggregate Risk</div>
+    <div class="big-claim narrow">项目最终不是停在模型比较，而是回到 annual impact 会怎样移动。</div>
+    <section class="visual-block"><div class="panel-title">情景风险曲线</div><div class="visual-frame visual-medium"><img src="../charts/chart_6_aggregate_risk_scenarios.png" alt="情景风险曲线"></div><div class="visual-caption">用四个情景把 expected impact 和 tail risk 拉到同一张图里。</div></section>
+    <section class="panel primary"><div class="panel-title">为什么要做四个情景</div><div class="panel-body"><p>基准情景是参考线，天气冲击与节假日高峰代表外部压力，disruption stress 代表系统处于更脆弱状态时的上移风险。相对基准，风险最高的 <b>节假日高峰情景</b> 在 Expected 上高出 <b>305,324</b> 分钟，在 VaR95 上高出 <b>391,212</b> 分钟。</p><p>这一页真正想说明的是：项目最后没有停留在“哪个分布更好”，而是回到管理者会问的那句话上，<b>如果运行环境变差，年度风险会被抬高到什么程度</b>。</p></div></section>
+  </div>
+  <div class="stack">
+    <section class="panel"><div class="panel-title">情景排序</div><div class="panel-body"><table class="data-table tight-table"><thead><tr><th>情景</th><th>Expected</th><th>VaR95</th><th>TVaR95</th></tr></thead><tbody><tr><td>节假日高峰情景</td><td>2,672,396</td><td>3,182,046</td><td>3,277,558</td></tr><tr><td>扰动加压情景</td><td>2,611,594</td><td>3,121,851</td><td>3,323,802</td></tr><tr><td>天气冲击情景</td><td>2,455,663</td><td>2,884,871</td><td>3,016,875</td></tr><tr><td>基准情景</td><td>2,367,073</td><td>2,790,834</td><td>2,911,906</td></tr></tbody></table></div></section>
+    <div class="band-grid">
+      <div class="stat-block accent"><div class="stat-label">最高 VaR95</div><div class="stat-value">3,182,046</div><div class="stat-note">节假日高峰情景</div></div>
+      <div class="stat-block muted"><div class="stat-label">基准 Expected</div><div class="stat-value">2,367,073</div><div class="stat-note">用于比较增量</div></div>
+    </div>
+  </div>
+</div>
+          </div>
+        </section><section class="report-page dark" style="--enter-delay:770ms;">
+          <div class="hd">
+            <div class="chapter-tag">P11 Operator Value</div>
+            <div class="page-title">这个项目最终能给运营商什么帮助</div>
+          </div>
+          <div class="ct">
+            <div class="finale">
+  <div class="section-kicker">Operator Value</div>
+  <div class="big-claim">这份风险分析，最终应该帮助运营商更早决定资源放在哪里。</div>
+  <div class="action-grid">
+    <div class="action-item"><div class="action-head">航司内部恢复</div><div class="action-main">加大 turnaround buffer，优先补强机组与维修衔接</div><div class="action-note">internal 风险占主导，且 top cause 是 Airline。</div></div><div class="action-item"><div class="action-head">机场 / NAS 协同</div><div class="action-main">在高压月份提前做容量、时隙与地面资源协调</div><div class="action-note">system 风险在 severity 上有明显抬升。</div></div><div class="action-item"><div class="action-head">季节与天气应对</div><div class="action-main">对 holiday / weather 情景配置 contingency plan</div><div class="action-note">aggregate risk 在这两类情景下显著上移。</div></div><div class="action-item"><div class="action-head">月度预警机制</div><div class="action-main">持续监控 delay rate、cancellation rate 与 impact composite</div><div class="action-note">它们直接决定状态识别与坏状态延续判断。</div></div>
+  </div>
+  <div class="closing-band">
+    <div>
+      <div class="closing-title">为什么这版更像一个完整项目</div>
+      <p>它不是从模型出发，而是从真实运营问题出发；它不是只给结果，而是把为什么这样分类、为什么只比这四个分布、为什么用 AIC、为什么可以做 Markov 全部串成了一条可解释的方法链。</p>
+      <p>对答辩来说，这一点尤其重要，因为听众看到的不是若干孤立分析，而是一套从识别、建模到解释、再到行动建议的完整项目结构。</p>
+    </div>
+    <div>
+      <div class="closing-title">最终展示口径</div>
+      <p>你可以把它定义成：<b>一个从机场真实运行问题出发，经过风险识别、统计建模、状态依赖分析，再回到运营决策的完整 operational risk project。</b></p>
+      <p>这样收束时，老师和组员看到的就不只是“你们做了很多页”，而是“你们确实完成了一条有设计感的方法链”。</p>
+    </div>
+  </div>
+</div>
+          </div>
+        </section></main></body></html>

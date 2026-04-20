@@ -1,0 +1,5 @@
+from_state,to_state,transition_probability,transition_count
+normal,normal,0.8148148148148148,44
+normal,disrupted,0.18518518518518517,10
+disrupted,normal,0.5294117647058824,9
+disrupted,disrupted,0.47058823529411764,8

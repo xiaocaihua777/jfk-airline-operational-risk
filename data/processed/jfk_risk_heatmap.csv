@@ -1,0 +1,4 @@
+risk_block,frequency_proxy_minutes,severity_proxy_minutes,frequency_bucket,severity_bucket
+Internal airline-operational disruption,110181.57,110181.57,High,High
+System/NAS disruption,37578.11,37578.11,Medium,Medium
+External shock disruption,6765.85,6765.85,Low,Low

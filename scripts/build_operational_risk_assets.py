@@ -7,13 +7,11 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[1]
 os.environ.setdefault("MPLCONFIGDIR", str(BASE_DIR / ".cache" / "matplotlib"))
 
-import matplotlib.dates as mdates
 import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.colors import LinearSegmentedColormap, PowerNorm
 from matplotlib.ticker import PercentFormatter
 from plotly.offline.offline import get_plotlyjs
 
@@ -42,7 +40,6 @@ AIRLINE_NAME_FIXES = {
     "Endeavor Air Inc.": "Endeavor Air",
     "Hawaiian Airlines Network": "Hawaiian Airlines",
     "SkyWest Airlines Inc.": "SkyWest Airlines",
-    "United Air Lines Network": "United Airlines",
 }
 
 READABLE_COLUMN_MAP = {
@@ -159,53 +156,14 @@ CAUSE_LABELS = {
 }
 
 CHART_COLORS = {
-    "pale_blue": "#D1DFE6",
-    "primary": "#3F74A3",
-    "accent": "#699BC5",
-    "brown": "#794E47",
-    "tan": "#9C7B57",
-    "mauve": "#A78F95",
-    "red": "#B54646",
-    "rose": "#D18F90",
-    "ink": "#1F1F1F",
-    "slate": "#3E3A39",
-    "muted": "#794E47",
-    "sand": "#FBFAF7",
-    "grid": "#D1DFE6",
-}
-
-CATEGORY_COLORS = [
-    CHART_COLORS["primary"],
-    CHART_COLORS["accent"],
-    CHART_COLORS["brown"],
-    CHART_COLORS["tan"],
-    CHART_COLORS["mauve"],
-    CHART_COLORS["red"],
-    CHART_COLORS["rose"],
-    CHART_COLORS["pale_blue"],
-]
-
-CAUSE_COLOR_MAP = {
-    "Airline": CHART_COLORS["primary"],
-    "Weather": CHART_COLORS["accent"],
-    "NAS": CHART_COLORS["tan"],
-    "Security": CHART_COLORS["red"],
-    "Late Aircraft": CHART_COLORS["rose"],
-}
-
-AIRLINE_LABEL_OFFSETS = {
-    "Alaska Airlines": (-18, -14),
-    "American Airlines": (26, 14),
-    "Delta Air Lines": (-24, 16),
-    "Endeavor Air": (-24, 12),
-    "Envoy Air": (0, 16),
-    "Frontier Airlines": (22, 12),
-    "Hawaiian Airlines": (-28, 0),
-    "JetBlue Airways": (0, 16),
-    "Piedmont Airlines": (-20, -16),
-    "Republic Airline": (-24, -14),
-    "SkyWest Airlines": (24, -16),
-    "United Airlines": (24, -12),
+    "primary": "#0F4C5C",
+    "secondary": "#E36414",
+    "accent": "#2A9D8F",
+    "gold": "#F4A261",
+    "red": "#D1495B",
+    "slate": "#3D405B",
+    "sand": "#F6F2E8",
+    "grid": "#D9D2C3",
 }
 
 COLUMN_METADATA = {
@@ -396,7 +354,7 @@ def build_column_dictionary() -> pd.DataFrame:
 def build_readable_full_dataset(raw_df: pd.DataFrame) -> pd.DataFrame:
     readable_df = raw_df.drop(columns=["carrier"]).rename(columns=READABLE_COLUMN_MAP)
     readable_df = readable_df[READABLE_COLUMN_ORDER].copy()
-    readable_df[INTEGER_LIKE_COLUMNS] = readable_df[INTEGER_LIKE_COLUMNS].astype("Int64")
+    readable_df[INTEGER_LIKE_COLUMNS] = readable_df[INTEGER_LIKE_COLUMNS].fillna(0).astype(int)
     return readable_df
 
 
@@ -439,18 +397,11 @@ def clean_core_dataset(readable_full_df: pd.DataFrame) -> tuple[pd.DataFrame, di
 
 def build_summaries(cleaned_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     monthly_summary = (
-        cleaned_df.groupby(["year", "month"], as_index=False)[
+        cleaned_df.groupby("month", as_index=False)[
             ["delayed_arrivals_15_plus", "cancelled_arrivals", "total_arrival_flights", "total_arrival_delay_minutes"]
         ]
         .sum()
-        .sort_values(["year", "month"])
-    )
-    monthly_summary["year_month"] = (
-        monthly_summary["year"].astype(str) + "-" + monthly_summary["month"].astype(str).str.zfill(2)
-    )
-    monthly_summary["period_start"] = pd.to_datetime(
-        monthly_summary["year_month"] + "-01",
-        format="%Y-%m-%d",
+        .sort_values("month")
     )
     monthly_summary["delay_rate"] = (
         monthly_summary["delayed_arrivals_15_plus"] / monthly_summary["total_arrival_flights"]
@@ -511,125 +462,97 @@ def apply_chart_style() -> None:
             "xtick.color": CHART_COLORS["slate"],
             "ytick.color": CHART_COLORS["slate"],
             "text.color": CHART_COLORS["slate"],
-            "font.family": "DejaVu Sans",
-            "axes.titlesize": 16,
-            "axes.labelsize": 11,
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
-            "legend.fontsize": 11,
         },
     )
-    plt.rcParams.update(
-        {
-            "font.family": "DejaVu Sans",
-            "svg.fonttype": "path",
-            "pdf.fonttype": 42,
-            "axes.titlecolor": CHART_COLORS["ink"],
-        }
-    )
 
 
-def save_chart(fig: plt.Figure, filename: str, *, bbox_inches: str | None = "tight") -> None:
-    fig.savefig(CHART_DIR / f"{filename}.png", dpi=320, bbox_inches=bbox_inches)
-    fig.savefig(CHART_DIR / f"{filename}.svg", bbox_inches=bbox_inches)
+def save_chart(fig: plt.Figure, filename: str) -> None:
+    fig.savefig(CHART_DIR / f"{filename}.png", dpi=320, bbox_inches="tight")
+    fig.savefig(CHART_DIR / f"{filename}.svg", bbox_inches="tight")
     plt.close(fig)
 
 
 def create_monthly_trend_chart(monthly_summary: pd.DataFrame) -> None:
-    fig, ax = plt.subplots(figsize=(15, 7))
-    period_dates = monthly_summary["period_start"]
+    fig, ax = plt.subplots(figsize=(13, 7))
+    months = monthly_summary["month"]
 
     ax.plot(
-        period_dates,
+        months,
         monthly_summary["delayed_arrivals_15_plus"],
         color=CHART_COLORS["primary"],
         marker="o",
-        markersize=4.5,
-        linewidth=2.6,
+        linewidth=3,
         label="Delayed arrivals (15+ min)",
     )
     ax.plot(
-        period_dates,
+        months,
         monthly_summary["cancelled_arrivals"],
-        color=CHART_COLORS["red"],
+        color=CHART_COLORS["secondary"],
         marker="o",
-        markersize=4.5,
-        linewidth=2.6,
+        linewidth=3,
         label="Cancelled arrivals",
     )
-    ax.fill_between(period_dates, monthly_summary["delayed_arrivals_15_plus"], color=CHART_COLORS["primary"], alpha=0.10)
-    ax.fill_between(period_dates, monthly_summary["cancelled_arrivals"], color=CHART_COLORS["red"], alpha=0.12)
+    ax.fill_between(months, monthly_summary["delayed_arrivals_15_plus"], color=CHART_COLORS["primary"], alpha=0.10)
+    ax.fill_between(months, monthly_summary["cancelled_arrivals"], color=CHART_COLORS["secondary"], alpha=0.12)
 
     peak_delay = monthly_summary.loc[monthly_summary["delayed_arrivals_15_plus"].idxmax()]
-    median_period = monthly_summary["period_start"].median()
-    text_offset = (-104, 12) if peak_delay["period_start"] > median_period else (30, 12)
-    horizontal_alignment = "right" if peak_delay["period_start"] > median_period else "left"
-    ax.set_ylim(
-        bottom=0,
-        top=max(
-            monthly_summary["delayed_arrivals_15_plus"].max(),
-            monthly_summary["cancelled_arrivals"].max(),
-        )
-        * 1.16,
-    )
     ax.annotate(
-        f"Peak delays: {peak_delay['year_month']}\n{int(round(peak_delay['delayed_arrivals_15_plus'])):,}",
-        xy=(peak_delay["period_start"], peak_delay["delayed_arrivals_15_plus"]),
-        xytext=text_offset,
-        textcoords="offset points",
-        fontsize=10.5,
-        ha=horizontal_alignment,
-        va="bottom",
+        f"Peak delays: Month {int(peak_delay['month'])}\n{int(round(peak_delay['delayed_arrivals_15_plus'])):,}",
+        xy=(peak_delay["month"], peak_delay["delayed_arrivals_15_plus"]),
+        xytext=(peak_delay["month"] + 0.35, peak_delay["delayed_arrivals_15_plus"] * 0.90),
+        fontsize=11,
+        ha="left",
+        va="top",
         color=CHART_COLORS["slate"],
         arrowprops={"arrowstyle": "->", "color": CHART_COLORS["slate"], "lw": 1.3},
         bbox={"boxstyle": "round,pad=0.4", "facecolor": "white", "edgecolor": CHART_COLORS["grid"]},
     )
 
     ax.set_title("Chart 1. Monthly Delay and Cancellation Trend at JFK", fontsize=18, fontweight="bold", loc="left")
-    ax.set_xlabel("Year-Month")
+    ax.set_xlabel("Month")
     ax.set_ylabel("Flights")
-    ax.set_xlim(period_dates.min(), period_dates.max())
-    ax.xaxis.set_major_locator(mdates.YearLocator())
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=3))
+    ax.set_xticks(range(1, 13))
     ax.legend(frameon=False, loc="upper left")
     sns.despine(ax=ax)
-    fig.autofmt_xdate(rotation=0)
     save_chart(fig, "chart_1_monthly_trend")
 
 
 def create_delay_cause_chart(cause_summary: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(10, 8))
-    fig.subplots_adjust(left=0.08, right=0.92, top=0.84, bottom=0.08)
-    palette = [CAUSE_COLOR_MAP[cause] for cause in cause_summary["cause"]]
+    palette = [
+        CHART_COLORS["primary"],
+        CHART_COLORS["secondary"],
+        CHART_COLORS["accent"],
+        CHART_COLORS["gold"],
+        CHART_COLORS["red"],
+    ]
     total_delay_minutes = int(cause_summary["delay_minutes"].sum())
     wedges, texts, autotexts = ax.pie(
         cause_summary["delay_minutes"],
         labels=cause_summary["cause"],
-        colors=palette,
-        radius=0.85,
+        colors=palette[: len(cause_summary)],
         startangle=110,
         counterclock=False,
         autopct=lambda pct: f"{pct:.1f}%" if pct >= 3 else "",
-        pctdistance=0.74,
-        labeldistance=1.05,
-        wedgeprops={"width": 0.33, "edgecolor": "white", "linewidth": 2.4},
-        textprops={"color": CHART_COLORS["slate"], "fontsize": 10, "fontweight": "bold"},
+        pctdistance=0.78,
+        labeldistance=1.10,
+        wedgeprops={"width": 0.42, "edgecolor": "white", "linewidth": 2},
+        textprops={"color": CHART_COLORS["slate"], "fontsize": 11, "fontweight": "bold"},
     )
 
     for autotext in autotexts:
         autotext.set_color("white")
-        autotext.set_fontsize(10)
+        autotext.set_fontsize(11)
         autotext.set_fontweight("bold")
 
-    ax.set_title("Chart 2. Delay Cause Breakdown\nby Share of Delay Minutes", fontsize=15, fontweight="bold", loc="center")
+    ax.set_title("Chart 2. Delay Cause Breakdown by Share of Delay Minutes", fontsize=18, fontweight="bold", loc="left")
     ax.text(
         0,
         0.08,
         f"{total_delay_minutes:,}",
         ha="center",
         va="center",
-        fontsize=20,
+        fontsize=24,
         fontweight="bold",
         color=CHART_COLORS["primary"],
     )
@@ -639,12 +562,11 @@ def create_delay_cause_chart(cause_summary: pd.DataFrame) -> None:
         "Total delay\nminutes",
         ha="center",
         va="center",
-        fontsize=10,
+        fontsize=11,
         color=CHART_COLORS["slate"],
         linespacing=1.25,
     )
-    ax.set_aspect("equal", adjustable="box")
-    ax.set_anchor("C")
+    ax.axis("equal")
     save_chart(fig, "chart_2_delay_cause_breakdown")
 
 
@@ -652,32 +574,16 @@ def create_airline_risk_chart(airline_profile: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(13.5, 8))
     max_flights = airline_profile["total_arrival_flights"].max()
     marker_sizes = 280 + (airline_profile["total_arrival_flights"] / max_flights) * 1000
-    risk_cmap = LinearSegmentedColormap.from_list(
-        "jfk_risk_palette",
-        [
-            CHART_COLORS["accent"],
-            CHART_COLORS["primary"],
-            CHART_COLORS["tan"],
-            CHART_COLORS["brown"],
-            CHART_COLORS["red"],
-        ],
-    )
-    color_norm = PowerNorm(
-        gamma=0.55,
-        vmin=airline_profile["cancellation_rate"].min(),
-        vmax=airline_profile["cancellation_rate"].max(),
-    )
 
     scatter = ax.scatter(
         airline_profile["delay_rate"],
         airline_profile["average_delay_minutes_per_delayed_flight"],
         s=marker_sizes,
         c=airline_profile["cancellation_rate"],
-        cmap=risk_cmap,
-        norm=color_norm,
-        alpha=0.96,
-        edgecolor=CHART_COLORS["ink"],
-        linewidth=1.1,
+        cmap="YlOrRd",
+        alpha=0.88,
+        edgecolor="white",
+        linewidth=1.8,
     )
 
     median_delay_rate = airline_profile["delay_rate"].median()
@@ -686,41 +592,25 @@ def create_airline_risk_chart(airline_profile: pd.DataFrame) -> None:
     ax.axhline(median_avg_minutes, color=CHART_COLORS["slate"], linestyle="--", linewidth=1.3, alpha=0.8)
 
     for _, row in airline_profile.iterrows():
-        offset = AIRLINE_LABEL_OFFSETS.get(row["airline_name"], (0, 12))
-        label = ax.annotate(
+        label = ax.text(
+            row["delay_rate"],
+            row["average_delay_minutes_per_delayed_flight"],
             row["airline_name"],
-            xy=(row["delay_rate"], row["average_delay_minutes_per_delayed_flight"]),
-            xytext=offset,
-            textcoords="offset points",
-            fontsize=8.0,
+            fontsize=10.5,
             ha="center",
             va="center",
             color=CHART_COLORS["slate"],
             fontweight="bold",
-            clip_on=False,
-            arrowprops={
-                "arrowstyle": "-",
-                "color": CHART_COLORS["grid"],
-                "lw": 0.85,
-                "alpha": 0.9,
-            },
-            bbox={
-                "boxstyle": "round,pad=0.16",
-                "facecolor": "white",
-                "edgecolor": "none",
-                "alpha": 0.82,
-            },
         )
-        label.set_path_effects([pe.withStroke(linewidth=1.8, foreground="white")])
+        label.set_path_effects([pe.withStroke(linewidth=3, foreground="white")])
 
     ax.set_title("Chart 3. Airline Risk Profiling at JFK", fontsize=18, fontweight="bold", loc="left")
     ax.set_xlabel("Delay rate = delayed arrivals / total arrivals")
     ax.set_ylabel("Average delay minutes per delayed flight")
     ax.xaxis.set_major_formatter(PercentFormatter(1.0))
-    ax.margins(x=0.13, y=0.18)
 
     colorbar = fig.colorbar(scatter, ax=ax, pad=0.02)
-    colorbar.ax.set_title("Cancellation rate", color=CHART_COLORS["slate"], fontsize=10, pad=10)
+    colorbar.set_label("Cancellation rate", color=CHART_COLORS["slate"])
     colorbar.ax.yaxis.set_major_formatter(PercentFormatter(1.0))
 
     sns.despine(ax=ax)
@@ -739,10 +629,6 @@ def build_dashboard(
     table_records = json.loads(readable_full_df.to_json(orient="records", force_ascii=False))
     core_records = json.loads(cleaned_df.to_json(orient="records", force_ascii=False))
     airline_records = json.loads(airline_profile.to_json(orient="records", force_ascii=False))
-    cleaned_periods = cleaned_df.assign(
-        year_month=cleaned_df["year"].astype(str) + "-" + cleaned_df["month"].astype(str).str.zfill(2)
-    )["year_month"]
-    data_scope = f"All airlines at JFK, {cleaned_periods.min()} to {cleaned_periods.max()}"
 
     html_template = """<!DOCTYPE html>
 <html lang="en">
@@ -752,23 +638,21 @@ def build_dashboard(
   <title>JFK Operational Risk Dashboard</title>
   <style>
     :root {
-      --bg: #fbfaf7;
+      --bg: #f6f2e8;
       --panel: #fffdf8;
-      --ink: #1f1f1f;
-      --muted: #794e47;
-      --line: #d1dfe6;
-      --primary: #3f74a3;
-      --secondary: #b54646;
-      --accent: #699bc5;
-      --gold: #9c7b57;
-      --mauve: #a78f95;
-      --red: #b54646;
-      --rose: #d18f90;
+      --ink: #253238;
+      --muted: #5b6b72;
+      --line: #d9d2c3;
+      --primary: #0f4c5c;
+      --secondary: #e36414;
+      --accent: #2a9d8f;
+      --gold: #f4a261;
+      --red: #d1495b;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      background: linear-gradient(180deg, rgba(209, 223, 230, 0.42) 0%, #fbfaf7 62%);
+      background: linear-gradient(180deg, #f4efe4 0%, #f8f5ec 100%);
       color: var(--ink);
       font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     }
@@ -793,8 +677,8 @@ def build_dashboard(
     .hero-panel {
       padding: 28px 30px;
       background:
-        radial-gradient(circle at top right, rgba(209, 143, 144, 0.20), transparent 30%),
-        radial-gradient(circle at bottom left, rgba(63, 116, 163, 0.16), transparent 34%),
+        radial-gradient(circle at top right, rgba(244, 162, 97, 0.15), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(15, 76, 92, 0.12), transparent 34%),
         rgba(255, 253, 248, 0.94);
     }
     h1 {
@@ -990,7 +874,7 @@ def build_dashboard(
       <div class="hero-panel meta-panel">
         <div class="meta-item">
           <span class="label">Dataset scope</span>
-          <span class="value">__DATA_SCOPE__</span>
+          <span class="value">All airlines at JFK, one full year</span>
         </div>
         <div class="meta-item">
           <span class="label">Rows after cleaning</span>
@@ -1069,23 +953,16 @@ def build_dashboard(
     const coreData = __CORE_DATA__;
     const airlineRiskData = __AIRLINE_RISK_DATA__;
     const tableColumns = __TABLE_COLUMNS__;
-    const chartFont = "Segoe UI, Helvetica Neue, Arial, sans-serif";
-    const airlinePalette = ["#3F74A3", "#699BC5", "#794E47", "#9C7B57", "#A78F95", "#B54646", "#D18F90", "#D1DFE6"];
     const causeColumns = [
-      { key: "airline_delay_minutes", label: "Airline", color: "#3F74A3" },
-      { key: "weather_delay_minutes", label: "Weather", color: "#699BC5" },
-      { key: "nas_delay_minutes", label: "NAS", color: "#9C7B57" },
-      { key: "security_delay_minutes", label: "Security", color: "#B54646" },
-      { key: "late_aircraft_delay_minutes", label: "Late Aircraft", color: "#D18F90" }
+      { key: "airline_delay_minutes", label: "Airline", color: "#0f4c5c" },
+      { key: "weather_delay_minutes", label: "Weather", color: "#e36414" },
+      { key: "nas_delay_minutes", label: "NAS", color: "#2a9d8f" },
+      { key: "security_delay_minutes", label: "Security", color: "#d1495b" },
+      { key: "late_aircraft_delay_minutes", label: "Late Aircraft", color: "#f4a261" }
     ];
+    const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const airlineFilter = document.getElementById("airlineFilter");
     const tableSearch = document.getElementById("tableSearch");
-
-    function getPeriod(row) {
-      return `${row.year}-${String(row.month).padStart(2, "0")}`;
-    }
-
-    const allPeriods = [...new Set(coreData.map(row => getPeriod(row)))].sort();
 
     function formatInteger(value) {
       return Math.round(value).toLocaleString("en-US");
@@ -1171,17 +1048,16 @@ def build_dashboard(
     }
 
     function aggregateMonthly(rows) {
-      const periodMap = new Map(allPeriods.map(period => [period, { period, delayed: 0, cancelled: 0 }]));
+      const monthMap = new Map();
+      for (let month = 1; month <= 12; month += 1) {
+        monthMap.set(month, { month, delayed: 0, cancelled: 0 });
+      }
       rows.forEach(row => {
-        const period = getPeriod(row);
-        if (!periodMap.has(period)) {
-          periodMap.set(period, { period, delayed: 0, cancelled: 0 });
-        }
-        const bucket = periodMap.get(period);
+        const bucket = monthMap.get(row.month);
         bucket.delayed += row.delayed_arrivals_15_plus;
         bucket.cancelled += row.cancelled_arrivals;
       });
-      return [...periodMap.values()].sort((a, b) => a.period.localeCompare(b.period));
+      return [...monthMap.values()];
     }
 
     function renderMonthlyTrend(rows) {
@@ -1190,26 +1066,25 @@ def build_dashboard(
         margin: { l: 60, r: 20, t: 20, b: 50 },
         paper_bgcolor: "rgba(0,0,0,0)",
         plot_bgcolor: "rgba(0,0,0,0)",
-        font: { family: chartFont, color: "#3E3A39" },
         legend: { orientation: "h", y: 1.12 },
-        xaxis: { title: "Year-Month", tickangle: -45, nticks: 14 },
-        yaxis: { title: "Flights", rangemode: "tozero", gridcolor: "#D1DFE6" }
+        xaxis: { tickmode: "array", tickvals: monthly.map(d => d.month), ticktext: monthLabels },
+        yaxis: { title: "Flights", rangemode: "tozero", gridcolor: "#d9d2c3" }
       };
       const data = [
         {
-          x: monthly.map(d => d.period),
+          x: monthly.map(d => d.month),
           y: monthly.map(d => d.delayed),
           mode: "lines+markers",
           name: "Delayed arrivals (15+ min)",
-          line: { color: "#3F74A3", width: 4 },
+          line: { color: "#0f4c5c", width: 4 },
           marker: { size: 9 }
         },
         {
-          x: monthly.map(d => d.period),
+          x: monthly.map(d => d.month),
           y: monthly.map(d => d.cancelled),
           mode: "lines+markers",
           name: "Cancelled arrivals",
-          line: { color: "#B54646", width: 4 },
+          line: { color: "#e36414", width: 4 },
           marker: { size: 9 }
         }
       ];
@@ -1226,7 +1101,6 @@ def build_dashboard(
         margin: { l: 20, r: 20, t: 20, b: 20 },
         paper_bgcolor: "rgba(0,0,0,0)",
         plot_bgcolor: "rgba(0,0,0,0)",
-        font: { family: chartFont, color: "#3E3A39" },
         legend: { orientation: "h", y: -0.15 },
         annotations: [{
           x: 0.5,
@@ -1235,13 +1109,12 @@ def build_dashboard(
           yref: "paper",
           showarrow: false,
           align: "center",
-          text: `<span style="font-size:23px;font-weight:700;color:#3F74A3">${Math.round(totalDelayMinutes).toLocaleString("en-US")}</span><br><span style="font-size:12px;color:#794E47">Total delay minutes</span>`
+          text: `<span style="font-size:24px;font-weight:700;color:#0f4c5c">${Math.round(totalDelayMinutes).toLocaleString("en-US")}</span><br><span style="font-size:12px;color:#5b6b72">Total delay minutes</span>`
         }]
       };
       const data = [{
         type: "pie",
-        hole: 0.66,
-        domain: { x: [0.08, 0.92], y: [0.08, 0.92] },
+        hole: 0.62,
         values: totals.map(item => item.value),
         labels: totals.map(item => item.label),
         marker: { colors: totals.map(item => item.color) },
@@ -1258,16 +1131,15 @@ def build_dashboard(
         margin: { l: 70, r: 20, t: 20, b: 60 },
         paper_bgcolor: "rgba(0,0,0,0)",
         plot_bgcolor: "rgba(0,0,0,0)",
-        font: { family: chartFont, color: "#3E3A39" },
         xaxis: {
           title: "Delay rate",
           tickformat: ".0%",
-          gridcolor: "#D1DFE6"
+          gridcolor: "#d9d2c3"
         },
         yaxis: {
           title: "Average delay minutes per delayed flight",
           rangemode: "tozero",
-          gridcolor: "#D1DFE6"
+          gridcolor: "#d9d2c3"
         },
         showlegend: false
       };
@@ -1287,11 +1159,10 @@ def build_dashboard(
         customdata: airlineRiskData.map(row => [row.total_arrival_flights, row.cancelled_arrivals]),
         marker: {
           size: airlineRiskData.map(row => 18 + (row.total_arrival_flights / maxFlights) * 32),
-          color: airlineRiskData.map((row, index) => selected === "All airlines" ? airlinePalette[index % airlinePalette.length] : (row.airline_name === selected ? "#B54646" : "#A78F95")),
-          line: { color: "#1F1F1F", width: 1.4 },
-          opacity: airlineRiskData.map(row => selected === "All airlines" ? 0.94 : (row.airline_name === selected ? 0.98 : 0.42))
-        },
-        textfont: { family: chartFont, size: 9, color: "#3E3A39" }
+          color: airlineRiskData.map(row => selected === "All airlines" ? "#0f4c5c" : (row.airline_name === selected ? "#e36414" : "#8fb8c4")),
+          line: { color: "white", width: 2 },
+          opacity: airlineRiskData.map(row => selected === "All airlines" ? 0.86 : (row.airline_name === selected ? 0.96 : 0.34))
+        }
       }];
       Plotly.react("airlineRisk", data, layout, { responsive: true, displaylogo: false });
     }
@@ -1348,7 +1219,6 @@ def build_dashboard(
         .replace("__CORE_DATA__", json.dumps(core_records, ensure_ascii=False))
         .replace("__AIRLINE_RISK_DATA__", json.dumps(airline_records, ensure_ascii=False))
         .replace("__TABLE_COLUMNS__", json.dumps(table_columns, ensure_ascii=False))
-        .replace("__DATA_SCOPE__", data_scope)
         .replace("__FINAL_ROWS__", str(cleaning_summary["final_rows"]))
         .replace("__REMOVED_NO_OPS__", str(cleaning_summary["removed_for_no_operations"]))
         .replace("__REMOVED_LOGIC__", str(cleaning_summary["removed_for_logic_issue"]))
@@ -1369,17 +1239,11 @@ def build_summary_markdown(
     top_cause = cause_summary.iloc[0]
     highest_delay_rate = airline_profile.loc[airline_profile["delay_rate"].idxmax()]
     highest_severity = airline_profile.loc[airline_profile["average_delay_minutes_per_delayed_flight"].idxmax()]
-    cleaned_periods = cleaned_df.assign(
-        year_month=cleaned_df["year"].astype(str) + "-" + cleaned_df["month"].astype(str).str.zfill(2)
-    )["year_month"]
-    coverage_start = cleaned_periods.min()
-    coverage_end = cleaned_periods.max()
 
     summary = f"""# JFK Operational Risk Descriptive Summary
 
 ## Data cleaning
 
-- Data coverage after cleaning: {coverage_start} to {coverage_end}
 - Raw rows: {cleaning_summary["initial_rows"]}
 - Removed because total arrival flights were missing or zero: {cleaning_summary["removed_for_no_operations"]}
 - Removed because delayed arrivals exceeded total arrivals: {cleaning_summary["removed_for_logic_issue"]}
@@ -1387,8 +1251,8 @@ def build_summary_markdown(
 
 ## Descriptive insights
 
-- Peak monthly delay volume occurred in {peak_delay_month["year_month"]} with {int(round(peak_delay_month["delayed_arrivals_15_plus"])):,} delayed arrivals.
-- Peak monthly cancellation volume occurred in {peak_cancel_month["year_month"]} with {int(round(peak_cancel_month["cancelled_arrivals"])):,} cancelled arrivals.
+- Peak monthly delay volume occurred in month {int(peak_delay_month["month"])} with {int(round(peak_delay_month["delayed_arrivals_15_plus"])):,} delayed arrivals.
+- Peak monthly cancellation volume occurred in month {int(peak_cancel_month["month"])} with {int(round(peak_cancel_month["cancelled_arrivals"])):,} cancelled arrivals.
 - The largest delay-severity driver was {top_cause["cause"]}, contributing {top_cause["share_of_total_delay_minutes"]:.1%} of total delay minutes.
 - The highest delay-rate airline was {highest_delay_rate["airline_name"]} at {highest_delay_rate["delay_rate"]:.1%}.
 - The highest average delay severity was {highest_severity["airline_name"]} at {highest_severity["average_delay_minutes_per_delayed_flight"]:.1f} minutes per delayed flight.
@@ -1420,16 +1284,11 @@ def main() -> None:
     save_dataframe(cause_summary, CAUSE_SUMMARY_STEM)
     save_dataframe(airline_profile, AIRLINE_PROFILE_STEM)
 
-    create_monthly_trend_chart(monthly_summary)
     create_delay_cause_chart(cause_summary)
-    create_airline_risk_chart(airline_profile)
-    build_dashboard(readable_full_df, cleaned_df, airline_profile, cleaning_summary)
-    build_summary_markdown(cleaned_df, monthly_summary, cause_summary, airline_profile, cleaning_summary)
 
     print("Outputs written to:")
     print(f"  Processed data: {PROCESSED_DIR}")
-    print(f"  Charts: {CHART_DIR}")
-    print(f"  Dashboard: {DASHBOARD_DIR}")
+    print(f"  Required descriptive chart: {CHART_DIR / 'chart_2_delay_cause_breakdown.png'}")
 
 
 if __name__ == "__main__":

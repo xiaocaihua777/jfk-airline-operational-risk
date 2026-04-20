@@ -1,0 +1,3 @@
+rule_name,disrupted_share,yearly_disrupted_share_std,disrupted_months,selection_score,selected
+delay_cancel_impact_composite,0.25,0.15214515486254615,18,0.15214515486254615,True
+impact_q75,0.25,0.1863389981249825,18,0.1863389981249825,False
