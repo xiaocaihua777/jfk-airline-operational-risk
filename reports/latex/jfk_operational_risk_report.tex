@@ -1,0 +1,39 @@
+\documentclass[12pt,fontset=fandol]{ctexart}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,longtable,tabularx,array}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{pdflscape}
+
+\graphicspath{{../charts/}}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.35em}
+\captionsetup{font=small}
+
+\title{JFK Airline Operational Risk Project\\详细 LaTeX 项目报告}
+\author{Based on repository outputs in \texttt{jfk-airline-operational-risk}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\input{sections/01_overview}
+\input{sections/02_data_preprocessing}
+\input{sections/03_risk_identification}
+\input{sections/04_distribution_models}
+\input{sections/05_state_markov}
+\input{sections/06_aggregate_simulation}
+\input{sections/07_reproducibility_conclusion}
+
+\end{document}

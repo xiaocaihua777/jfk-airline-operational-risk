@@ -1,0 +1,51 @@
+\section{项目概述}
+
+\subsection{项目目标}
+
+本项目研究的不是单次航班是否晚点，而是 \textbf{JFK 机场在多年份尺度上的运营扰动风险}。项目围绕一个完整的运营风险分析链条展开：
+\begin{enumerate}[leftmargin=2.2em]
+  \item 从 BTS 原始延误原因出发进行风险识别；
+  \item 对事件频率进行分布拟合，并比较 Poisson 与 Negative Binomial；
+  \item 对事件严重度进行分布拟合，并比较 Lognormal 与 Weibull；
+  \item 在机场月份层面定义 normal / disrupted 两类运行状态；
+  \item 估计两状态 Markov 转移关系；
+  \item 在不同运营情景下模拟年度 aggregate operational impact。
+\end{enumerate}
+
+仓库说明文件已经明确给出这一逻辑链条，这也是本报告组织结构的主线。项目的最终展示文件是中文 HTML 展示页，主建模脚本则负责生成可复现的数据集、图表和风险情景指标。
+
+\subsection{仓库中的角色分工}
+
+项目中的主要脚本分工如下：
+\begin{itemize}[leftmargin=2.2em]
+  \item \texttt{scripts/build\_operational\_risk\_assets.py}：生成清洗后的描述性数据集、字段字典和基础图表；
+  \item \texttt{scripts/build\_multiyear\_operational\_risk\_project.py}：生成建模输入、分布比较结果、状态面板、Markov 转移矩阵、年度情景模拟和主图表；
+  \item \texttt{scripts/build\_chinese\_modeling\_process\_report.py} 与 \texttt{scripts/build\_chinese\_modeling\_process\_showcase.py}：把前面产出的结果组织成中文展示版 HTML。
+\end{itemize}
+
+因此，这个仓库同时兼具 \textbf{分析工程管线} 与 \textbf{课程展示材料} 两种属性：一方面它保留了原始数据到结果表的完整过程，另一方面它又将结果包装成适合课程汇报的可视化叙事。
+
+\subsection{本报告的写作目标}
+
+本报告的目标不是简单复述 README，而是基于仓库中的全部可见内容，对项目过程进行系统重建，特别强调以下几点：
+\begin{itemize}[leftmargin=2.2em]
+  \item 数据源、样本范围、清洗逻辑与指标构造；
+  \item 风险分类从 BTS taxonomy 到课程风险语言的映射；
+  \item 频率与严重度分布为何选择这些候选分布，如何通过 AIC 进行筛选；
+  \item 机场月份状态的定义、规则比较与两状态 Markov 链的估计过程；
+  \item 年度 aggregate risk 的 Monte Carlo 模拟结构与情景设计。
+\end{itemize}
+
+\subsection{项目的风险口径}
+
+项目没有直接把运营扰动转换成货币损失，而是采用 \textbf{delay-equivalent minutes} 作为统一损失口径。其核心思想是：延误分钟本身已经来自官方 BTS 数据，取消与备降则通过固定 penalty 合并进同一指标，从而避免在报告阶段引入难以 defend 的 monetary assumption。
+
+设某个月份、某家航司的总运营冲击为 $L$，则项目采用的损失口径可以写为
+\begin{equation}
+L = \text{total arrival delay minutes}
+  + 180 \times \text{cancelled arrivals}
+  + 240 \times \text{diverted arrivals}.
+\label{eq:delay-equivalent-loss}
+\end{equation}
+
+这个定义会在后续的状态划分、情景模拟和年度风险结果中反复出现，因此它是整套建模链的统一度量基础。

@@ -1,0 +1,47 @@
+\section{可复现性、局限与结论}
+
+\subsection{可复现流程}
+
+仓库给出的可复现流程非常清晰。环境配置文件只依赖 Python 3.11 与常见科学计算包，因此复现门槛较低。主流程如下：
+\begin{enumerate}[leftmargin=2.2em]
+  \item 创建 \texttt{operational\_risk} conda 环境；
+  \item 运行 \texttt{build\_operational\_risk\_assets.py} 生成基础清洗结果与描述性图表；
+  \item 运行 \texttt{build\_multiyear\_operational\_risk\_project.py} 生成建模输入、模型比较结果、状态面板、Markov 转移矩阵与情景模拟结果；
+  \item 运行 \texttt{build\_chinese\_modeling\_process\_showcase.py} 生成最终中文展示版 HTML。
+\end{enumerate}
+
+这意味着该项目并非只保留了一份静态报告，而是保留了 \textbf{原始数据 $\rightarrow$ 中间表 $\rightarrow$ 图表 $\rightarrow$ 最终展示文件} 的完整工程链。
+
+\subsection{项目的主要优点}
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item \textbf{研究问题清楚}：不做单航班预测，而是聚焦运营风险的频率、严重度、状态与年度影响；
+  \item \textbf{损失口径统一}：用 delay-equivalent minutes 避免了主观货币化假设；
+  \item \textbf{方法链完整}：从风险识别到 aggregate simulation 是一条闭环；
+  \item \textbf{复现性强}：关键中间文件和图表都保留在仓库中；
+  \item \textbf{展示友好}：HTML 展示页和图表资产使课程汇报可直接落地。
+\end{enumerate}
+
+\subsection{局限与可以进一步提升的方向}
+
+虽然这个项目结构完整，但从统计建模与风险工程角度看，仍有几个值得说明的局限：
+\begin{enumerate}[leftmargin=2.2em]
+  \item \textbf{情景乘子是人为设定的}。这对于课程项目是合理的，但若用于正式决策，最好引入更明确的校准依据；
+  \item \textbf{模拟次数只有 500}。对均值足够，但对 99\% 尾部指标来说仍可能存在抽样波动；
+  \item \textbf{严重度模型是单变量拟合}。没有进一步控制季节、航司结构或机场状态之外的协变量；
+  \item \textbf{损失单位不是货币}。这让结果更贴近观察数据，但不适合直接用于预算、保险定价或财务资本配置。
+\end{enumerate}
+
+\subsection{最终结论}
+
+综合整个仓库的结果，可以将项目结论概括为以下几点：
+\begin{enumerate}[leftmargin=2.2em]
+  \item \textbf{JFK 的主导风险来自内部运行链条}，尤其是 airline 与 late aircraft 两部分构成的内部失稳；
+  \item \textbf{NAS 风险是第二层的重要来源}，说明系统拥堵对运营冲击具有显著影响；
+  \item \textbf{external shock 更像低频高损风险}，频率不高，但在尾部情景中能显著放大年度损失；
+  \item \textbf{频率上 Negative Binomial 全面优于 Poisson}，说明计数过程存在明显过度离散；
+  \item \textbf{状态依赖是真实存在的}：一旦进入 disrupted 状态，风险不仅更高，而且具有持续性；
+  \item \textbf{年度 aggregate risk 在不同情景下有明显差异}，因此单一 baseline 无法充分描述运营风险全貌。
+\end{enumerate}
+
+从课程项目的角度看，这个仓库已经实现了一个完整、可解释、可复现的运营风险分析样板。它最有价值的地方不在于某一个单独模型，而在于它把 \textbf{数据清洗、风险识别、分布选择、状态建模和年度情景模拟} 串成了一条逻辑闭环，并通过图表与 HTML 展示页将分析结果转化为可交流、可展示、可复查的成果。

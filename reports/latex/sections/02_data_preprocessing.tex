@@ -1,0 +1,106 @@
+\section{数据基础与预处理}
+
+\subsection{数据来源与样本范围}
+
+原始数据来自仓库中的 \texttt{data/raw/Airline\_Delay\_Cause.csv}，字段定义来自 \texttt{data/raw/Download\_Column\_Definitions.xlsx}。项目脚本首先检查原始文件是否包含 BTS 预期字段，然后筛选到达机场为 \texttt{JFK} 的记录，并按年份、月份、航司名称排序。
+
+当前仓库样本覆盖情况如下：
+\begin{table}[H]
+\centering
+\caption{样本覆盖范围}
+\begin{tabular}{lr}
+\toprule
+指标 & 数值 \\
+\midrule
+原始 JFK 航司月份记录数 & 570 \\
+清洗后记录数 & 569 \\
+移除记录数 & 1 \\
+年份范围 & 2020--2025 \\
+机场月份数量 & 72 \\
+涉及航司数 & 12 \\
+总到达航班量 & 657{,}671 \\
+总延误分钟 & 11{,}125{,}838 \\
+总取消数 & 18{,}230 \\
+总备降数 & 1{,}873 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+清洗时唯一被删除的记录来自 \textbf{无实际运行量} 的月份，脚本也检查了是否存在 ``延误航班数大于总航班数'' 这类逻辑错误；当前样本没有出现此类逻辑异常。
+
+\subsection{字段标准化与可读化}
+
+项目先把原始 BTS 字段重命名为更可读的变量名。例如：
+\begin{itemize}[leftmargin=2.2em]
+  \item \texttt{arr\_flights} $\rightarrow$ \texttt{total\_arrival\_flights}
+  \item \texttt{arr\_del15} $\rightarrow$ \texttt{delayed\_arrivals\_15\_plus}
+  \item \texttt{carrier\_delay} $\rightarrow$ \texttt{airline\_delay\_minutes}
+  \item \texttt{late\_aircraft\_delay} $\rightarrow$ \texttt{late\_aircraft\_delay\_minutes}
+\end{itemize}
+
+此外，脚本还修正了部分航司名称，避免同一航司因命名风格不同而被拆成多个实体。例如 ``American Airlines Network'' 被统一为 ``American Airlines''。
+
+\subsection{关键衍生变量}
+
+在航司月份层面，项目构造了多类衍生变量，为后续频率建模、严重度建模和状态分析提供基础。
+
+\paragraph{1. 基础比率指标}
+
+令某航司在月份 $t$ 的总到达航班量为 $F_t$，延误航班量为 $D_t$，取消数为 $C_t$，备降数为 $V_t$，则
+\begin{align}
+\text{delay\_rate}_t &= \frac{D_t}{F_t}, \\
+\text{cancellation\_rate}_t &= \frac{C_t}{F_t}, \\
+\text{diversion\_rate}_t &= \frac{V_t}{F_t}.
+\end{align}
+
+\paragraph{2. 频率建模用的风险块事件数}
+
+项目将 BTS 原始原因重写为三类课程风险块：
+\begin{align}
+N_t^{(\text{internal})} &= \text{carrier\_ct}_t + \text{late\_aircraft\_ct}_t, \\
+N_t^{(\text{system})} &= \text{nas\_ct}_t, \\
+N_t^{(\text{external})} &= \text{weather\_ct}_t + \text{security\_ct}_t.
+\end{align}
+
+其中 \texttt{carrier\_ct}、\texttt{weather\_ct} 等变量是 BTS 按原因分摊的估算延误班次数，因此可能出现小数。项目在频率模型中使用其四舍五入后的整数版本：
+\begin{equation}
+\tilde{N}_t^{(b)} = \operatorname{round}(N_t^{(b)}), \qquad b \in \{\text{internal}, \text{system}, \text{external}\}.
+\end{equation}
+
+\paragraph{3. 严重度建模用的平均事件损失}
+
+项目没有直接拟合总分钟，而是拟合每类事件的 \textbf{平均分钟损失}。设某航司月份中的各风险块总分钟分别为 $M_t^{(\text{internal})}$、$M_t^{(\text{system})}$、$M_t^{(\text{external})}$，则
+\begin{align}
+\bar{X}_t^{(\text{total})} &= \frac{\text{total arrival delay minutes}_t}{\text{delayed arrivals 15+}_t}, \\
+\bar{X}_t^{(\text{internal})} &= \frac{M_t^{(\text{internal})}}{N_t^{(\text{internal})}}, \\
+\bar{X}_t^{(\text{system})} &= \frac{M_t^{(\text{system})}}{N_t^{(\text{system})}}, \\
+\bar{X}_t^{(\text{external})} &= \frac{M_t^{(\text{external})}}{N_t^{(\text{external})}},
+\end{align}
+当分母为零时，脚本把对应均值记为 0。
+
+\subsection{描述性结果}
+
+图 \ref{fig:trend} 展示了多年期月度趋势，图 \ref{fig:cause-breakdown} 展示了不同延误原因对总分钟的贡献结构。两张图共同说明：风险不是均匀分布在全年中的，且来源也明显集中在内部链条失稳、晚到飞机与 NAS 拥堵上。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth]{chart_1_multiyear_monthly_trend.png}
+  \caption{多年期月度风险趋势}
+  \label{fig:trend}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.82\textwidth]{chart_2_delay_cause_breakdown.png}
+  \caption{延误原因构成}
+  \label{fig:cause-breakdown}
+\end{figure}
+
+从月度汇总结果看，风险高点明显集中在夏季：
+\begin{itemize}[leftmargin=2.2em]
+  \item 7 月延误率最高，达到 0.2785；
+  \item 6 月和 12 月也维持较高延误率；
+  \item 从取消数量看，7 月同样是最高的月份之一。
+\end{itemize}
+
+在航司层面，JetBlue Airways、Delta Air Lines、American Airlines、Endeavor Air 与 Republic Airline 的总延误分钟位于样本前列，其中 JetBlue Airways 的总延误分钟显著高于其他航司。这一结果在风险画像中有助于解释为什么项目后续更强调机场系统层面的状态，而不是把所有结论简单归因于单一航司。

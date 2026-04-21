@@ -1,0 +1,80 @@
+\section{风险识别与风险块映射}
+
+\subsection{为什么不能直接照搬 BTS taxonomy}
+
+BTS 的原始分类包含 \texttt{Airline}、\texttt{Weather}、\texttt{NAS}、\texttt{Security} 与 \texttt{Late Aircraft}。这套 taxonomy 的优点是字段清晰、口径官方统一，但它更像 \textbf{数据库口径}，不完全等于课程中的 \textbf{运营风险语言}。
+
+项目因此做了以下映射：
+\begin{align}
+\text{Internal} &= \text{Airline} + \text{Late Aircraft}, \\
+\text{System} &= \text{NAS}, \\
+\text{External} &= \text{Weather} + \text{Security}.
+\end{align}
+
+这样做的逻辑是：
+\begin{itemize}[leftmargin=2.2em]
+  \item \texttt{Late Aircraft} 常常不是独立、孤立的外部原因，而是内部排班、飞机轮换、恢复缓冲不足后的传导结果；
+  \item \texttt{NAS} 代表系统拥堵与国家空域系统层面的约束，更适合作为 system risk block；
+  \item \texttt{Weather} 与 \texttt{Security} 都属于外部冲击，虽然量级不同，但管理含义更接近 external shock。
+\end{itemize}
+
+\subsection{原因结构与分钟占比}
+
+项目处理后的延误原因分钟汇总如下：
+\begin{table}[H]
+\centering
+\caption{BTS 原始原因的分钟占比}
+\begin{tabular}{lrr}
+\toprule
+原因 & 延误分钟 & 占总延误分钟比例 \\
+\midrule
+Airline & 4{,}022{,}961 & 36.16\% \\
+Late Aircraft & 3{,}910{,}112 & 35.14\% \\
+NAS & 2{,}705{,}624 & 24.32\% \\
+Weather & 466{,}088 & 4.19\% \\
+Security & 21{,}053 & 0.19\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+这个结果说明两件事：
+\begin{enumerate}[leftmargin=2.2em]
+  \item 内部运行链条相关分钟是绝对主体，因为仅 \texttt{Airline + Late Aircraft} 就占到了约 71\%；
+  \item 天气和安保虽然在运营叙事里常被强调，但在当前样本中属于低占比、偏尾部的风险块。
+\end{enumerate}
+
+\subsection{风险热力图的构造方法}
+
+项目没有直接用专家打分法做热力图，而是基于处理后数据构造 \textbf{频率代理量} 与 \textbf{严重度代理量}。
+
+对每个风险块 $b$，项目先计算：
+\begin{align}
+F_b &= \text{该风险块在机场月份层面平均每月的分钟规模}, \\
+S_b &= \text{该风险块在机场月份层面平均每月的分钟规模}.
+\end{align}
+
+这里脚本使用的是机场月份总分钟均值，随后将三个风险块在相互之间做分位排序，并映射到 $\{\text{Low},\text{Medium},\text{High}\}$ 三个等级。虽然这不是严格意义上的独立频率与严重度二维分解，但它保留了一个对课程展示很有用的性质：\textbf{用统一分钟口径对三大风险块做相对排序}。
+
+热力图结果如下：
+\begin{table}[H]
+\centering
+\caption{风险热力图代理量}
+\begin{tabular}{lrrcc}
+\toprule
+风险块 & 频率代理分钟 & 严重度代理分钟 & 频率等级 & 严重度等级 \\
+\midrule
+Internal airline-operational disruption & 110{,}181.57 & 110{,}181.57 & High & High \\
+System/NAS disruption & 37{,}578.11 & 37{,}578.11 & Medium & Medium \\
+External shock disruption & 6{,}765.85 & 6{,}765.85 & Low & Low \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.62\textwidth]{chart_3_risk_heatmap.png}
+  \caption{风险热力图}
+  \label{fig:heatmap}
+\end{figure}
+
+因此，项目的风险识别阶段已经给出了后续建模的管理解释基础：\textbf{JFK 的主导风险是内部运行链条失稳，其次是系统拥堵，外部冲击更多体现为尾部放大器而非日常主导项。}

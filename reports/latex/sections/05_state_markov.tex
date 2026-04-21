@@ -1,0 +1,174 @@
+\section{运行状态划分与 Markov 依赖}
+
+\subsection{为何需要状态框架}
+
+如果只使用全样本频率与严重度分布，那么模型默认所有月份来自同一种环境。这与实际运营并不一致：机场存在正常月份，也存在明显高压、恢复困难、取消增加的扰动月份。因此，项目先在机场月份层面定义状态，再讨论状态之间的转移。
+
+\subsection{候选状态规则}
+
+项目比较了两套状态规则：
+\begin{enumerate}[leftmargin=2.2em]
+  \item \textbf{impact\_q75}：如果月份总冲击高于 \texttt{disruption\_impact\_minutes} 的 75\% 分位数，则记为 disrupted；
+  \item \textbf{delay\_cancel\_impact\_composite}：把延误率、取消率和 delay-equivalent minutes 标准化后求和，再取 75\% 分位以上为 disrupted。
+\end{enumerate}
+
+第二种规则的数学形式为：
+\begin{align}
+z_t^{(d)} &= \frac{\text{delay\_rate}_t - \mu_d}{\sigma_d}, \\
+z_t^{(c)} &= \frac{\text{cancellation\_rate}_t - \mu_c}{\sigma_c}, \\
+z_t^{(L)} &= \frac{L_t - \mu_L}{\sigma_L}, \\
+\text{Composite}_t &= z_t^{(d)} + z_t^{(c)} + z_t^{(L)}.
+\end{align}
+
+然后令
+\begin{equation}
+\text{state}_t =
+\begin{cases}
+\text{disrupted}, & \text{if } \text{Composite}_t \ge Q_{0.75}(\text{Composite}), \\
+\text{normal}, & \text{otherwise}.
+\end{cases}
+\end{equation}
+
+\subsection{规则选择方法}
+
+项目没有主观指定状态规则，而是构造了一个 selection score：
+\begin{equation}
+\text{score}
+= \left| \text{disrupted\_share} - 0.25 \right|
++ \operatorname{std}\left(\text{yearly disrupted share}\right).
+\end{equation}
+
+第一项控制 disrupted 月份占比不要偏离 25\%，第二项控制不同年份之间 disrupted 占比的稳定性。分数越低，说明状态定义既保留了 ``四分之一高风险月份'' 的直觉，又避免年份之间波动过大。
+
+结果如下：
+\begin{table}[H]
+\centering
+\caption{状态规则比较}
+\begin{tabular}{lrrrrc}
+\toprule
+规则 & disrupted 占比 & 年度占比标准差 & disrupted 月数 & score & 是否选中 \\
+\midrule
+delay\_cancel\_impact\_composite & 0.25 & 0.1521 & 18 & 0.1521 & Yes \\
+impact\_q75 & 0.25 & 0.1863 & 18 & 0.1863 & No \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+因此，项目最终选择 \texttt{delay\_cancel\_impact\_composite} 作为状态识别规则。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.82\textwidth]{chart_10_state_rule_comparison_en.png}
+  \caption{状态规则比较图}
+  \label{fig:state-rule}
+\end{figure}
+
+\subsection{状态划分后的经验特征}
+
+在最终选中的规则下：
+\begin{itemize}[leftmargin=2.2em]
+  \item 72 个机场月份中，54 个为 normal，18 个为 disrupted；
+  \item normal 状态下，平均月度冲击为 149{,}550.65 分钟；
+  \item disrupted 状态下，平均月度冲击为 376{,}723.50 分钟；
+  \item normal 状态平均取消率为 0.0147，而 disrupted 状态提高到 0.0811。
+\end{itemize}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.78\textwidth]{chart_4_disruption_state_impact.png}
+  \caption{不同状态下的航空公司月份冲击分布}
+  \label{fig:state-impact}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{chart_5_monthly_disrupted_share.png}
+  \caption{机场月份状态时间线}
+  \label{fig:state-timeline}
+\end{figure}
+
+样本中的峰值扰动月份是 2023 年 7 月，其 delay-equivalent minutes 达到 583{,}999 分钟。随后较高风险月份还包括 2025 年 7 月、2022 年 6 月、2024 年 8 月等。图 \ref{fig:state-timeline} 说明高风险月份并非随机散点，而是呈现出季节性与阶段性聚集。
+
+\subsection{Markov 转移矩阵的估计}
+
+在状态被定义后，项目按月份时间顺序构造一阶 Markov 链。设状态空间为
+\begin{equation}
+\mathcal{S} = \{\text{normal}, \text{disrupted}\}.
+\end{equation}
+
+对任意 $i,j \in \mathcal{S}$，转移概率估计为
+\begin{equation}
+\hat{p}_{ij} = \frac{N_{ij}}{\sum_{k \in \mathcal{S}}N_{ik}},
+\end{equation}
+其中 $N_{ij}$ 表示从状态 $i$ 转移到状态 $j$ 的观察次数。
+
+当前样本得到的转移矩阵为
+\begin{equation}
+\hat{P}
+=
+\begin{bmatrix}
+0.814815 & 0.185185 \\
+0.529412 & 0.470588
+\end{bmatrix},
+\label{eq:transition-matrix}
+\end{equation}
+其中行对应当前状态，列对应下一期状态，即
+\begin{equation}
+\hat{P} =
+\begin{bmatrix}
+\mathbb{P}(N \to N) & \mathbb{P}(N \to D) \\
+\mathbb{P}(D \to N) & \mathbb{P}(D \to D)
+\end{bmatrix}.
+\end{equation}
+
+对应的转移计数是：
+\begin{table}[H]
+\centering
+\caption{Markov 转移计数与概率}
+\begin{tabular}{llrr}
+\toprule
+from & to & 计数 & 概率 \\
+\midrule
+normal & normal & 44 & 0.8148 \\
+normal & disrupted & 10 & 0.1852 \\
+disrupted & normal & 9 & 0.5294 \\
+disrupted & disrupted & 8 & 0.4706 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.55\textwidth]{chart_7_markov_transition_matrix.png}
+  \caption{两状态 Markov 转移矩阵}
+  \label{fig:markov}
+\end{figure}
+
+\subsection{平稳分布的计算}
+
+若记平稳分布为 $\bm{\pi} = (\pi_N,\pi_D)$，则有
+\begin{equation}
+\bm{\pi}\hat{P} = \bm{\pi}, \qquad \pi_N + \pi_D = 1.
+\end{equation}
+
+对二状态链，可直接解得
+\begin{equation}
+\pi_D = \frac{\hat{p}_{ND}}{\hat{p}_{ND} + \hat{p}_{DN}}
+      = \frac{0.185185}{0.185185 + 0.529412}
+      \approx 0.2591,
+\end{equation}
+以及
+\begin{equation}
+\pi_N = 1 - \pi_D \approx 0.7409.
+\end{equation}
+
+这说明在长期意义上，系统大约有 74.1\% 的时间停留在 normal 状态，有 25.9\% 的时间停留在 disrupted 状态。这个结果与前面状态规则中 ``约四分之一月份为 disrupted'' 的设计逻辑是一致的。
+
+\subsection{本阶段的解释}
+
+Markov 结果可以读成一种非常直接的运营叙事：
+\begin{itemize}[leftmargin=2.2em]
+  \item 正常状态具有明显惯性，下一月继续保持 normal 的概率约为 81.5\%；
+  \item 一旦进入 disrupted 状态，仍有 47.1\% 的概率在下一月继续维持 disrupted；
+  \item 因此，扰动不仅是高损失月份本身，更体现为 \textbf{状态持续性与恢复难度}。
+\end{itemize}
