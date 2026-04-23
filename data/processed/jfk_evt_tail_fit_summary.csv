@@ -1,0 +1,5 @@
+threshold_quantile,threshold_value,exceedance_count,exceedance_share,empirical_var_95_minutes,empirical_tvar_95_minutes,empirical_var_99_minutes,empirical_tvar_99_minutes,fit_status,gpd_shape_xi,gpd_scale_beta,tail_mean_defined,evt_var_95_minutes,evt_tvar_95_minutes,evt_var_99_minutes,evt_tvar_99_minutes,scenario,simulation_runs
+0.95,2786980.82,2500,0.05,2786980.82,2912760.08,2988326.7,3103901.0,ok,-0.048006,131781.98,True,,,2991089.3,3107485.27,base,50000
+0.95,3117090.18,2500,0.05,3117090.18,3267611.65,3360116.33,3494436.38,ok,-0.071494,161270.8,True,,,3362269.34,3496420.41,disruption_stress,50000
+0.95,3164840.38,2500,0.05,3164840.38,3308261.59,3399301.49,3523212.29,ok,-0.109568,159213.4,True,,,3399762.57,3520055.73,holiday_peak,50000
+0.95,2910545.4,2500,0.05,2910545.4,3043666.22,3126927.82,3244039.58,ok,-0.079088,143644.83,True,,,3127624.11,3244830.89,weather_shock,50000

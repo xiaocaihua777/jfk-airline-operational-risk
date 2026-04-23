@@ -1,0 +1,106 @@
+\section{EVT 尾部扩展}
+
+\subsection{为什么要在年度模拟之后继续建模尾部}
+
+上一节已经得到了年度总冲击 $L_{\text{annual}}$ 的 Monte Carlo 分布，并据此计算经验型 VaR 与 TVaR。问题在于，均值与 95\% 分位数主要由分布主体决定，而 \textbf{TVaR 99\% 这类尾部指标对最右侧极端样本特别敏感}。如果只依赖经验分位数和经验条件均值，结果会随着模拟抽样有一定波动。
+
+因此，这一版扩展没有推翻原来的频率--严重度--Markov 主模型，而是把 EVT 作为 \textbf{tail-risk overlay} 接在年度模拟之后：主体部分继续由原模型解释，最右尾的一小段改用极值理论单独刻画。
+
+\subsection{Peaks over Threshold 与 GPD}
+
+设年度总损失记为 $L$，选取一个较高阈值 $u$，只研究超过阈值后的超额量
+\begin{equation}
+Y = L - u \mid L > u.
+\end{equation}
+
+极值理论中的 Peaks over Threshold 方法认为，当阈值足够高时，$Y$ 可近似服从 Generalized Pareto Distribution（GPD）：
+\begin{equation}
+\mathbb{P}(Y \le y)
+=
+1 - \left(1 + \frac{\xi y}{\beta}\right)^{-1/\xi},
+\qquad y \ge 0,
+\end{equation}
+其中 $\xi$ 为 shape parameter，$\beta$ 为 scale parameter。
+
+若样本总量为 $N$，超过阈值的样本个数为 $N_u$，则高分位的尾部近似可以写为
+\begin{equation}
+\mathbb{P}(L > x)
+\approx
+\frac{N_u}{N}
+\left(
+1 + \frac{\xi(x-u)}{\beta}
+\right)^{-1/\xi}.
+\end{equation}
+
+从而，在 $\alpha$ 足够高且 $1-\alpha < N_u/N$ 时，EVT 版本的 VaR 近似为
+\begin{equation}
+\mathrm{VaR}^{\mathrm{EVT}}_{\alpha}(L)
+=
+u + \frac{\beta}{\xi}
+\left[
+\left(
+\frac{N_u/N}{1-\alpha}
+\right)^{\xi} - 1
+\right].
+\end{equation}
+
+当 $\xi < 1$ 时，尾部条件均值有限，因此可以进一步得到 EVT 版本的 TVaR：
+\begin{equation}
+\mathrm{TVaR}^{\mathrm{EVT}}_{\alpha}(L)
+=
+\frac{
+\mathrm{VaR}^{\mathrm{EVT}}_{\alpha}(L) + \beta - \xi u
+}{1-\xi}.
+\end{equation}
+
+在当前实现里，正式汇总结果以 95\% 阈值为主，同时附带 90\%、92.5\%、95\%、97.5\% 四组阈值敏感性检查。由于默认阈值本身就是 95\%，因此 95\% 位置的 EVT-VaR/TVaR 不是重点，真正有解释价值的是 \textbf{99\% 尾部指标是否稳定、是否明显偏离经验 TVaR 99\%}。
+
+\subsection{年度尾部拟合结果}
+
+\begin{table}[H]
+\centering
+\caption{年度情景的 GPD 尾部拟合与 EVT TVaR 99\%}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lrrrr}
+\toprule
+情景 & GPD shape $\xi$ & 经验 TVaR 99\% & EVT TVaR 99\% & 稳定性 \\
+\midrule
+base & -0.05 & 3{,}103{,}901.00 & 3{,}107{,}485.27 & stable \\
+disruption\_stress & -0.07 & 3{,}494{,}436.38 & 3{,}496{,}420.41 & stable \\
+weather\_shock & -0.08 & 3{,}244{,}039.58 & 3{,}244{,}830.89 & stable \\
+holiday\_peak & -0.11 & 3{,}523{,}212.29 & 3{,}520{,}055.73 & stable \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+这张表可以读出三个关键信号：
+\begin{enumerate}[leftmargin=2.2em]
+  \item 四个情景的 $\xi$ 都为负值，说明当前年度尾部并不是爆炸式厚尾，尾部均值是可解释的；
+  \item 经验 TVaR 99\% 与 EVT TVaR 99\% 非常接近，说明原年度模拟对尾部的刻画已经相当稳健；
+  \item 在这一版样本下，\texttt{holiday\_peak} 的尾部均值略高于 \texttt{disruption\_stress}，但二者都显著高于 \texttt{base}。
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth]{chart_11_evt_tail_fit.png}
+  \caption{四个核心情景下的经验尾部与 GPD 拟合}
+  \label{fig:evt-tail-fit}
+\end{figure}
+
+图 \ref{fig:evt-tail-fit} 直接把经验 exceedance survival curve 与 GPD 拟合画在一起。从图形上看，GPD 曲线与经验尾部基本同向，没有出现明显错位或阈值以上剧烈背离。这一点和表格中的数值结论是相互支持的。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.84\textwidth]{chart_12_evt_threshold_sensitivity.png}
+  \caption{不同阈值下的 EVT TVaR 99\% 稳定性}
+  \label{fig:evt-threshold-stability}
+\end{figure}
+
+\subsection{这一扩展对原项目意味着什么}
+
+把 EVT 加进来之后，原项目的统计叙事发生了一个重要升级：
+\begin{enumerate}[leftmargin=2.2em]
+  \item 原模型已经不只是在回答“平均一年大概会损失多少”，而是在回答“\textbf{极端但合理的坏年份会坏到什么程度}”。
+\end{enumerate}
+
+因此，这一节不是另起一个新模型，而是对现有频率--严重度--Markov 年度框架的 \textbf{尾部增强}：它让 TVaR 的解释更稳，也让后续的敏感性分析有了更扎实的 tail-risk 参照。

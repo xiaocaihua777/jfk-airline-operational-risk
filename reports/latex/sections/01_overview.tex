@@ -9,7 +9,8 @@
   \item 对事件严重度进行分布拟合，并比较 Lognormal 与 Weibull；
   \item 在机场月份层面定义 normal / disrupted 两类运行状态；
   \item 估计两状态 Markov 转移关系；
-  \item 在不同运营情景下模拟年度 aggregate operational impact。
+  \item 在不同运营情景下模拟年度 aggregate operational impact；
+  \item 在年度损失尾部引入 EVT/GPD 扩展，并对关键风险驱动做敏感性分析。
 \end{enumerate}
 
 仓库说明文件已经明确给出这一逻辑链条，这也是本报告组织结构的主线。项目的最终展示文件是中文 HTML 展示页，主建模脚本则负责生成可复现的数据集、图表和风险情景指标。
@@ -33,7 +34,8 @@
   \item 风险分类从 BTS taxonomy 到课程风险语言的映射；
   \item 频率与严重度分布为何选择这些候选分布，如何通过 AIC 进行筛选；
   \item 机场月份状态的定义、规则比较与两状态 Markov 链的估计过程；
-  \item 年度 aggregate risk 的 Monte Carlo 模拟结构与情景设计。
+  \item 年度 aggregate risk 的 Monte Carlo 模拟结构与情景设计；
+  \item EVT 尾部建模与敏感性分析如何在原主模型之上扩展极端风险解释。
 \end{itemize}
 
 \subsection{项目的风险口径}

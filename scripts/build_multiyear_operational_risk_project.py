@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from copy import deepcopy
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -11,6 +12,12 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy import stats
+
+try:
+    from joblib import Parallel, delayed
+except ImportError:  # pragma: no cover - serial fallback when joblib is unavailable.
+    Parallel = None
+    delayed = None
 
 
 RAW_DIR = BASE_DIR / "data" / "raw"
@@ -33,6 +40,10 @@ FREQUENCY_SUMMARY = PROCESSED_DIR / "jfk_frequency_model_summary.csv"
 SEVERITY_SUMMARY = PROCESSED_DIR / "jfk_severity_model_summary.csv"
 AGGREGATE_SIMULATIONS = PROCESSED_DIR / "jfk_aggregate_risk_simulations.csv"
 SCENARIO_METRICS = PROCESSED_DIR / "jfk_aggregate_risk_scenario_metrics.csv"
+EVT_TAIL_SUMMARY = PROCESSED_DIR / "jfk_evt_tail_fit_summary.csv"
+EVT_THRESHOLD_SENSITIVITY = PROCESSED_DIR / "jfk_evt_tail_threshold_sensitivity.csv"
+SENSITIVITY_METRICS = PROCESSED_DIR / "jfk_sensitivity_analysis_metrics.csv"
+SENSITIVITY_LONG = PROCESSED_DIR / "jfk_sensitivity_analysis_long.csv"
 
 STAT_SUMMARY = SUMMARY_DIR / "jfk_statistical_modeling_summary.md"
 RISK_IDENTIFICATION_SUMMARY = SUMMARY_DIR / "jfk_risk_identification_summary.md"
@@ -134,8 +145,20 @@ CAUSE_LABELS = {
 
 CANCELLATION_PENALTY_MINUTES = 180.0
 DIVERSION_PENALTY_MINUTES = 240.0
-SIMULATION_RUNS = 500
+SIMULATION_RUNS = 50_000
 RANDOM_SEED = 7337
+DEFAULT_EVT_THRESHOLD = 0.95
+EVT_THRESHOLD_GRID = (0.90, 0.925, 0.95, 0.975)
+MIN_EVT_EXCEEDANCES = 250
+TAIL_STABILITY_TOLERANCE = 0.15
+SENSITIVITY_LEVELS = (0.10, 0.20, 0.30)
+MAX_PARALLEL_SCENARIOS = 4
+SENSITIVITY_COMBINATIONS = {
+    "internal_system_plus_20pct": ("internal", "system"),
+    "external_system_plus_20pct": ("external", "system"),
+    "internal_cancel_plus_20pct": ("internal", "cancel"),
+    "external_cancel_divert_plus_20pct": ("external", "cancel", "divert"),
+}
 
 
 def ensure_output_directories() -> None:
@@ -163,6 +186,77 @@ def save_chart(fig: plt.Figure, stem: str) -> None:
     fig.savefig(CHART_DIR / f"{stem}.png", dpi=320, bbox_inches="tight")
     fig.savefig(CHART_DIR / f"{stem}.svg", bbox_inches="tight")
     plt.close(fig)
+
+
+def build_core_scenarios() -> dict[str, dict[str, dict[str, float]]]:
+    return {
+        "base": {
+            "normal": {"internal": 1.00, "system": 1.00, "external": 1.00, "cancel": 1.00, "divert": 1.00, "sev_internal": 1.00, "sev_system": 1.00, "sev_external": 1.00},
+            "disrupted": {"internal": 1.10, "system": 1.20, "external": 1.25, "cancel": 1.15, "divert": 1.10, "sev_internal": 1.05, "sev_system": 1.08, "sev_external": 1.10},
+        },
+        "disruption_stress": {
+            "normal": {"internal": 1.05, "system": 1.10, "external": 1.10, "cancel": 1.05, "divert": 1.05, "sev_internal": 1.03, "sev_system": 1.05, "sev_external": 1.05},
+            "disrupted": {"internal": 1.25, "system": 1.35, "external": 1.45, "cancel": 1.30, "divert": 1.20, "sev_internal": 1.10, "sev_system": 1.15, "sev_external": 1.20},
+        },
+        "weather_shock": {
+            "normal": {"internal": 1.00, "system": 1.05, "external": 1.25, "cancel": 1.10, "divert": 1.08, "sev_internal": 1.00, "sev_system": 1.03, "sev_external": 1.12},
+            "disrupted": {"internal": 1.05, "system": 1.15, "external": 1.65, "cancel": 1.40, "divert": 1.30, "sev_internal": 1.02, "sev_system": 1.08, "sev_external": 1.25},
+        },
+        "holiday_peak": {
+            "normal": {"internal": 1.12, "system": 1.12, "external": 1.08, "cancel": 1.08, "divert": 1.05, "sev_internal": 1.05, "sev_system": 1.05, "sev_external": 1.03},
+            "disrupted": {"internal": 1.22, "system": 1.28, "external": 1.18, "cancel": 1.22, "divert": 1.15, "sev_internal": 1.10, "sev_system": 1.12, "sev_external": 1.08},
+        },
+    }
+
+
+def build_frequency_sensitivity_scenarios(
+    base_scenario: dict[str, dict[str, float]],
+) -> tuple[dict[str, dict[str, dict[str, float]]], pd.DataFrame]:
+    scenarios: dict[str, dict[str, dict[str, float]]] = {}
+    metadata_rows: list[dict[str, str | float]] = []
+
+    scenarios["base_reference"] = deepcopy(base_scenario)
+    metadata_rows.append(
+        {
+            "scenario": "base_reference",
+            "scenario_type": "reference",
+            "drivers": "none",
+            "shock_level_pct": 0.0,
+        }
+    )
+
+    for driver in ("internal", "system", "external", "cancel", "divert"):
+        for level in SENSITIVITY_LEVELS:
+            name = f"{driver}_plus_{int(level * 100)}pct"
+            scenario_cfg = deepcopy(base_scenario)
+            for state_name in ("normal", "disrupted"):
+                scenario_cfg[state_name][driver] *= 1.0 + level
+            scenarios[name] = scenario_cfg
+            metadata_rows.append(
+                {
+                    "scenario": name,
+                    "scenario_type": "single_factor",
+                    "drivers": driver,
+                    "shock_level_pct": round(level * 100, 1),
+                }
+            )
+
+    for name, drivers in SENSITIVITY_COMBINATIONS.items():
+        scenario_cfg = deepcopy(base_scenario)
+        for driver in drivers:
+            for state_name in ("normal", "disrupted"):
+                scenario_cfg[state_name][driver] *= 1.20
+        scenarios[name] = scenario_cfg
+        metadata_rows.append(
+            {
+                "scenario": name,
+                "scenario_type": "combination",
+                "drivers": ",".join(drivers),
+                "shock_level_pct": 20.0,
+            }
+        )
+
+    return scenarios, pd.DataFrame(metadata_rows)
 
 
 def month_name(month: int) -> str:
@@ -642,30 +736,52 @@ def build_severity_models(model_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def draw_count(model_name: str, params: pd.Series, multiplier: float, rng: np.random.Generator) -> int:
+    return int(draw_count_array(model_name, params, multiplier, rng, size=1)[0])
+
+
+def draw_count_array(
+    model_name: str,
+    params: pd.Series,
+    multiplier: float,
+    rng: np.random.Generator,
+    size: int,
+) -> np.ndarray:
+    size = max(int(size), 1)
     if model_name == "poisson":
         lam = max(float(params["param_1"]) * multiplier, 1e-9)
-        return int(rng.poisson(lam))
+        return rng.poisson(lam, size=size).astype(int)
 
     dispersion = max(float(params["param_1"]), 1e-9)
     base_p = min(max(float(params["param_2"]), 1e-9), 1 - 1e-9)
     base_mean = dispersion * (1 - base_p) / base_p
     scaled_mean = max(base_mean * multiplier, 1e-9)
     if dispersion >= 1e5:
-        return int(rng.poisson(scaled_mean))
+        return rng.poisson(scaled_mean, size=size).astype(int)
     p = dispersion / (dispersion + scaled_mean)
-    return int(rng.negative_binomial(dispersion, p))
+    return rng.negative_binomial(dispersion, p, size=size).astype(int)
 
 
 def draw_severity(model_name: str, params: pd.Series, multiplier: float, rng: np.random.Generator) -> float:
+    return float(draw_severity_array(model_name, params, multiplier, rng, size=1)[0])
+
+
+def draw_severity_array(
+    model_name: str,
+    params: pd.Series,
+    multiplier: float,
+    rng: np.random.Generator,
+    size: int,
+) -> np.ndarray:
+    size = max(int(size), 1)
     if model_name == "lognorm":
         sigma = float(params["param_1"])
         scale = max(float(params["param_2"]), 1e-9)
-        value = rng.lognormal(mean=float(np.log(scale)), sigma=sigma)
+        values = rng.lognormal(mean=float(np.log(scale)), sigma=sigma, size=size)
     else:
         shape = max(float(params["param_1"]), 1e-9)
         scale = max(float(params["param_2"]), 1e-9)
-        value = rng.weibull(shape) * scale
-    return float(value) * multiplier
+        values = rng.weibull(shape, size=size) * scale
+    return values.astype(float) * multiplier
 
 
 def simulate_states(
@@ -694,82 +810,173 @@ def simulate_states(
     return sequence
 
 
-def simulate_aggregate_risk(
-    model_df: pd.DataFrame,
+def run_annual_loss_simulations(
     airport_month: pd.DataFrame,
     transition_matrix: pd.DataFrame,
     stable_transition: bool,
     frequency_df: pd.DataFrame,
     severity_df: pd.DataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    selected_frequency = frequency_df.loc[frequency_df["selected"]].set_index("variable")
-    selected_severity = severity_df.loc[severity_df["selected"]].set_index("variable")
-    month_sizes = airport_month["airlines_in_sample"].to_numpy(dtype=int)
-    rng = np.random.default_rng(RANDOM_SEED)
+    scenario_configs: dict[str, dict[str, dict[str, float]]],
+    sim_runs: int,
+    *,
+    seed_offset: int = 0,
+) -> pd.DataFrame:
+    scenario_items = list(scenario_configs.items())
+    if not scenario_items:
+        return pd.DataFrame(columns=["scenario", "simulation_id", "aggregate_annual_impact_minutes"])
 
-    scenarios = {
-        "base": {
-            "normal": {"internal": 1.00, "system": 1.00, "external": 1.00, "cancel": 1.00, "divert": 1.00, "sev_internal": 1.00, "sev_system": 1.00, "sev_external": 1.00},
-            "disrupted": {"internal": 1.10, "system": 1.20, "external": 1.25, "cancel": 1.15, "divert": 1.10, "sev_internal": 1.05, "sev_system": 1.08, "sev_external": 1.10},
-        },
-        "disruption_stress": {
-            "normal": {"internal": 1.05, "system": 1.10, "external": 1.10, "cancel": 1.05, "divert": 1.05, "sev_internal": 1.03, "sev_system": 1.05, "sev_external": 1.05},
-            "disrupted": {"internal": 1.25, "system": 1.35, "external": 1.45, "cancel": 1.30, "divert": 1.20, "sev_internal": 1.10, "sev_system": 1.15, "sev_external": 1.20},
-        },
-        "weather_shock": {
-            "normal": {"internal": 1.00, "system": 1.05, "external": 1.25, "cancel": 1.10, "divert": 1.08, "sev_internal": 1.00, "sev_system": 1.03, "sev_external": 1.12},
-            "disrupted": {"internal": 1.05, "system": 1.15, "external": 1.65, "cancel": 1.40, "divert": 1.30, "sev_internal": 1.02, "sev_system": 1.08, "sev_external": 1.25},
-        },
-        "holiday_peak": {
-            "normal": {"internal": 1.12, "system": 1.12, "external": 1.08, "cancel": 1.08, "divert": 1.05, "sev_internal": 1.05, "sev_system": 1.05, "sev_external": 1.03},
-            "disrupted": {"internal": 1.22, "system": 1.28, "external": 1.18, "cancel": 1.22, "divert": 1.15, "sev_internal": 1.10, "sev_system": 1.12, "sev_external": 1.08},
-        },
-    }
+    worker_count = min(MAX_PARALLEL_SCENARIOS, len(scenario_items), os.cpu_count() or 1)
+    parallel_inputs = [
+        (
+            scenario_name,
+            config,
+            airport_month,
+            transition_matrix,
+            stable_transition,
+            frequency_df,
+            severity_df,
+            sim_runs,
+            RANDOM_SEED + seed_offset + index * 1_000,
+        )
+        for index, (scenario_name, config) in enumerate(scenario_items)
+    ]
+
+    if worker_count > 1 and Parallel is not None and delayed is not None:
+        parallel_job = [
+            delayed(_simulate_single_scenario)(*scenario_input) for scenario_input in parallel_inputs
+        ]
+        try:
+            results = Parallel(n_jobs=worker_count, prefer="processes")(parallel_job)
+        except (PermissionError, OSError):
+            try:
+                results = Parallel(n_jobs=worker_count, prefer="threads")(parallel_job)
+            except RuntimeError:
+                results = [_simulate_single_scenario(*scenario_input) for scenario_input in parallel_inputs]
+    else:
+        results = [_simulate_single_scenario(*scenario_input) for scenario_input in parallel_inputs]
 
     simulation_rows: list[dict[str, float | str | int]] = []
-    metrics_rows: list[dict[str, float | str]] = []
-    for scenario_name, config in scenarios.items():
-        annual_totals = []
-        for sim_id in range(1, SIMULATION_RUNS + 1):
-            state_sequence = simulate_states(airport_month, transition_matrix, stable_transition, 12, rng)
-            annual_total = 0.0
-            for state in state_sequence:
-                month_airlines = int(rng.choice(month_sizes))
-                state_cfg = config[state]
-                monthly_total = 0.0
-                for _ in range(month_airlines):
-                    internal_count = draw_count(selected_frequency.loc["internal_ops_count", "distribution"], selected_frequency.loc["internal_ops_count"], state_cfg["internal"], rng)
-                    system_count = draw_count(selected_frequency.loc["system_ops_count", "distribution"], selected_frequency.loc["system_ops_count"], state_cfg["system"], rng)
-                    external_count = draw_count(selected_frequency.loc["external_ops_count", "distribution"], selected_frequency.loc["external_ops_count"], state_cfg["external"], rng)
-                    cancel_count = draw_count(selected_frequency.loc["cancellation_count", "distribution"], selected_frequency.loc["cancellation_count"], state_cfg["cancel"], rng)
-                    divert_count = draw_count(selected_frequency.loc["diversion_count", "distribution"], selected_frequency.loc["diversion_count"], state_cfg["divert"], rng)
+    for scenario_name, annual_totals in results:
+        simulation_rows.extend(
+            {
+                "scenario": scenario_name,
+                "simulation_id": sim_id,
+                "aggregate_annual_impact_minutes": round(float(annual_total), 2),
+            }
+            for sim_id, annual_total in enumerate(annual_totals, start=1)
+        )
+    return pd.DataFrame(simulation_rows)
 
-                    if internal_count > 0:
-                        monthly_total += internal_count * draw_severity(selected_severity.loc["internal_avg_delay_minutes", "distribution"], selected_severity.loc["internal_avg_delay_minutes"], state_cfg["sev_internal"], rng)
-                    if system_count > 0:
-                        monthly_total += system_count * draw_severity(selected_severity.loc["system_avg_delay_minutes", "distribution"], selected_severity.loc["system_avg_delay_minutes"], state_cfg["sev_system"], rng)
-                    if external_count > 0:
-                        monthly_total += external_count * draw_severity(selected_severity.loc["external_avg_delay_minutes", "distribution"], selected_severity.loc["external_avg_delay_minutes"], state_cfg["sev_external"], rng)
 
-                    monthly_total += cancel_count * CANCELLATION_PENALTY_MINUTES
-                    monthly_total += divert_count * DIVERSION_PENALTY_MINUTES
-                annual_total += monthly_total
+def _simulate_single_scenario(
+    scenario_name: str,
+    config: dict[str, dict[str, float]],
+    airport_month: pd.DataFrame,
+    transition_matrix: pd.DataFrame,
+    stable_transition: bool,
+    frequency_df: pd.DataFrame,
+    severity_df: pd.DataFrame,
+    sim_runs: int,
+    seed: int,
+) -> tuple[str, np.ndarray]:
+    selected_frequency = frequency_df.loc[frequency_df["selected"]].set_index("variable")
+    selected_severity = severity_df.loc[severity_df["selected"]].set_index("variable")
+    frequency_models = {
+        variable: (str(row["distribution"]), row.copy())
+        for variable, row in selected_frequency.iterrows()
+    }
+    severity_models = {
+        variable: (str(row["distribution"]), row.copy())
+        for variable, row in selected_severity.iterrows()
+    }
+    internal_count_model, internal_count_params = frequency_models["internal_ops_count"]
+    system_count_model, system_count_params = frequency_models["system_ops_count"]
+    external_count_model, external_count_params = frequency_models["external_ops_count"]
+    cancel_count_model, cancel_count_params = frequency_models["cancellation_count"]
+    divert_count_model, divert_count_params = frequency_models["diversion_count"]
+    internal_sev_model, internal_sev_params = severity_models["internal_avg_delay_minutes"]
+    system_sev_model, system_sev_params = severity_models["system_avg_delay_minutes"]
+    external_sev_model, external_sev_params = severity_models["external_avg_delay_minutes"]
+    month_sizes = airport_month["airlines_in_sample"].to_numpy(dtype=int)
+    rng = np.random.default_rng(seed)
+    annual_totals = np.empty(sim_runs, dtype=float)
 
-            annual_totals.append(annual_total)
-            simulation_rows.append(
-                {
-                    "scenario": scenario_name,
-                    "simulation_id": sim_id,
-                    "aggregate_annual_impact_minutes": round(annual_total, 2),
-                }
+    for sim_index in range(sim_runs):
+        state_sequence = simulate_states(airport_month, transition_matrix, stable_transition, 12, rng)
+        sampled_month_sizes = rng.choice(month_sizes, size=len(state_sequence))
+        annual_total = 0.0
+        for state, month_airlines in zip(state_sequence, sampled_month_sizes, strict=False):
+            month_airlines = int(month_airlines)
+            state_cfg = config[state]
+            monthly_total = 0.0
+
+            internal_counts = draw_count_array(
+                internal_count_model, internal_count_params, state_cfg["internal"], rng, month_airlines
             )
+            if np.any(internal_counts):
+                internal_positive = internal_counts[internal_counts > 0]
+                internal_severity = draw_severity_array(
+                    internal_sev_model,
+                    internal_sev_params,
+                    state_cfg["sev_internal"],
+                    rng,
+                    len(internal_positive),
+                )
+                monthly_total += float(np.dot(internal_positive, internal_severity))
 
-        annual_series = pd.Series(annual_totals)
+            system_counts = draw_count_array(
+                system_count_model, system_count_params, state_cfg["system"], rng, month_airlines
+            )
+            if np.any(system_counts):
+                system_positive = system_counts[system_counts > 0]
+                system_severity = draw_severity_array(
+                    system_sev_model,
+                    system_sev_params,
+                    state_cfg["sev_system"],
+                    rng,
+                    len(system_positive),
+                )
+                monthly_total += float(np.dot(system_positive, system_severity))
+
+            external_counts = draw_count_array(
+                external_count_model, external_count_params, state_cfg["external"], rng, month_airlines
+            )
+            if np.any(external_counts):
+                external_positive = external_counts[external_counts > 0]
+                external_severity = draw_severity_array(
+                    external_sev_model,
+                    external_sev_params,
+                    state_cfg["sev_external"],
+                    rng,
+                    len(external_positive),
+                )
+                monthly_total += float(np.dot(external_positive, external_severity))
+
+            cancel_total = int(
+                draw_count_array(cancel_count_model, cancel_count_params, state_cfg["cancel"], rng, month_airlines).sum()
+            )
+            divert_total = int(
+                draw_count_array(divert_count_model, divert_count_params, state_cfg["divert"], rng, month_airlines).sum()
+            )
+            monthly_total += cancel_total * CANCELLATION_PENALTY_MINUTES
+            monthly_total += divert_total * DIVERSION_PENALTY_MINUTES
+            annual_total += monthly_total
+
+        annual_totals[sim_index] = annual_total
+
+    return scenario_name, annual_totals
+
+
+def summarize_empirical_metrics(simulations: pd.DataFrame) -> pd.DataFrame:
+    metrics_rows: list[dict[str, float | str | int]] = []
+    for scenario_name, group in simulations.groupby("scenario"):
+        annual_series = group["aggregate_annual_impact_minutes"]
         var95 = float(annual_series.quantile(0.95))
         var99 = float(annual_series.quantile(0.99))
         metrics_rows.append(
             {
                 "scenario": scenario_name,
+                "simulation_runs": int(len(group)),
                 "expected_impact_minutes": round(float(annual_series.mean()), 2),
                 "var_95_minutes": round(var95, 2),
                 "tvar_95_minutes": round(float(annual_series.loc[annual_series >= var95].mean()), 2),
@@ -777,12 +984,254 @@ def simulate_aggregate_risk(
                 "tvar_99_minutes": round(float(annual_series.loc[annual_series >= var99].mean()), 2),
             }
         )
+    return pd.DataFrame(metrics_rows)
 
-    simulations = pd.DataFrame(simulation_rows)
-    metrics = pd.DataFrame(metrics_rows)
+
+def simulate_aggregate_risk(
+    airport_month: pd.DataFrame,
+    transition_matrix: pd.DataFrame,
+    stable_transition: bool,
+    frequency_df: pd.DataFrame,
+    severity_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    simulations = run_annual_loss_simulations(
+        airport_month,
+        transition_matrix,
+        stable_transition,
+        frequency_df,
+        severity_df,
+        build_core_scenarios(),
+        SIMULATION_RUNS,
+    )
+    metrics = summarize_empirical_metrics(simulations)
     simulations.to_csv(AGGREGATE_SIMULATIONS, index=False)
     metrics.to_csv(SCENARIO_METRICS, index=False)
     return simulations, metrics
+
+
+def fit_gpd_tail(exceedances: pd.Series) -> tuple[float, float]:
+    shape, _, scale = stats.genpareto.fit(exceedances.to_numpy(dtype=float), floc=0)
+    return float(shape), float(scale)
+
+
+def compute_evt_var(alpha: float, threshold: float, exceedance_share: float, shape: float, scale: float) -> float:
+    tail_prob = 1.0 - alpha
+    if tail_prob <= 0 or exceedance_share <= 0 or alpha <= 1.0 - exceedance_share:
+        return np.nan
+    ratio = exceedance_share / tail_prob
+    if ratio <= 1:
+        return np.nan
+    if abs(shape) < 1e-8:
+        return float(threshold + scale * np.log(ratio))
+    return float(threshold + (scale / shape) * (ratio**shape - 1.0))
+
+
+def compute_evt_tvar(alpha: float, threshold: float, exceedance_share: float, shape: float, scale: float) -> float:
+    var_alpha = compute_evt_var(alpha, threshold, exceedance_share, shape, scale)
+    if np.isnan(var_alpha) or shape >= 1.0:
+        return np.nan
+    return float((var_alpha + scale - shape * threshold) / (1.0 - shape))
+
+
+def analyze_evt_tail(
+    annual_series: pd.Series,
+    threshold_quantile: float,
+    *,
+    stability_flag: str | None = None,
+) -> dict[str, float | str | int]:
+    threshold = float(annual_series.quantile(threshold_quantile))
+    exceedances = annual_series.loc[annual_series > threshold] - threshold
+    exceedance_count = int(len(exceedances))
+    exceedance_share = exceedance_count / max(int(len(annual_series)), 1)
+    empirical_var95 = float(annual_series.quantile(0.95))
+    empirical_var99 = float(annual_series.quantile(0.99))
+    empirical_tvar95 = float(annual_series.loc[annual_series >= empirical_var95].mean())
+    empirical_tvar99 = float(annual_series.loc[annual_series >= empirical_var99].mean())
+
+    row: dict[str, float | str | int] = {
+        "threshold_quantile": threshold_quantile,
+        "threshold_value": round(threshold, 2),
+        "exceedance_count": exceedance_count,
+        "exceedance_share": round(exceedance_share, 6),
+        "empirical_var_95_minutes": round(empirical_var95, 2),
+        "empirical_tvar_95_minutes": round(empirical_tvar95, 2),
+        "empirical_var_99_minutes": round(empirical_var99, 2),
+        "empirical_tvar_99_minutes": round(empirical_tvar99, 2),
+        "fit_status": "ok",
+        "gpd_shape_xi": np.nan,
+        "gpd_scale_beta": np.nan,
+        "tail_mean_defined": False,
+        "evt_var_95_minutes": np.nan,
+        "evt_tvar_95_minutes": np.nan,
+        "evt_var_99_minutes": np.nan,
+        "evt_tvar_99_minutes": np.nan,
+    }
+    if stability_flag is not None:
+        row["tvar_99_stability_flag"] = stability_flag
+
+    if exceedance_count < MIN_EVT_EXCEEDANCES:
+        row["fit_status"] = "insufficient_exceedances"
+        return row
+
+    try:
+        shape, scale = fit_gpd_tail(exceedances)
+    except Exception:
+        row["fit_status"] = "gpd_fit_failed"
+        return row
+
+    if not np.isfinite(shape) or not np.isfinite(scale) or scale <= 0:
+        row["fit_status"] = "invalid_gpd_parameters"
+        return row
+
+    row["gpd_shape_xi"] = round(shape, 6)
+    row["gpd_scale_beta"] = round(scale, 2)
+    row["tail_mean_defined"] = bool(shape < 1.0)
+    row["evt_var_95_minutes"] = round(compute_evt_var(0.95, threshold, exceedance_share, shape, scale), 2)
+    row["evt_tvar_95_minutes"] = round(compute_evt_tvar(0.95, threshold, exceedance_share, shape, scale), 2)
+    row["evt_var_99_minutes"] = round(compute_evt_var(0.99, threshold, exceedance_share, shape, scale), 2)
+    row["evt_tvar_99_minutes"] = round(compute_evt_tvar(0.99, threshold, exceedance_share, shape, scale), 2)
+
+    if shape >= 1.0:
+        row["fit_status"] = "tail_mean_undefined"
+    return row
+
+
+def run_evt_tail_analysis(
+    simulations: pd.DataFrame,
+    *,
+    summary_path: Path | None = EVT_TAIL_SUMMARY,
+    threshold_path: Path | None = EVT_THRESHOLD_SENSITIVITY,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    summary_rows: list[dict[str, float | str | int]] = []
+    threshold_rows: list[dict[str, float | str | int]] = []
+
+    for scenario_name, group in simulations.groupby("scenario"):
+        annual_series = group["aggregate_annual_impact_minutes"].astype(float)
+        default_row = analyze_evt_tail(annual_series, DEFAULT_EVT_THRESHOLD)
+        default_row["scenario"] = scenario_name
+        default_row["simulation_runs"] = int(len(group))
+        summary_rows.append(default_row)
+
+        scenario_threshold_rows = []
+        for threshold_quantile in EVT_THRESHOLD_GRID:
+            row = analyze_evt_tail(annual_series, threshold_quantile)
+            row["scenario"] = scenario_name
+            row["simulation_runs"] = int(len(group))
+            scenario_threshold_rows.append(row)
+
+        valid_tvar99 = [float(row["evt_tvar_99_minutes"]) for row in scenario_threshold_rows if pd.notna(row["evt_tvar_99_minutes"])]
+        if len(valid_tvar99) < 2:
+            stability_flag = "insufficient_valid_thresholds"
+        else:
+            mean_value = float(np.mean(valid_tvar99))
+            relative_range = float((max(valid_tvar99) - min(valid_tvar99)) / mean_value) if mean_value else np.inf
+            stability_flag = "stable" if relative_range <= TAIL_STABILITY_TOLERANCE else "unstable"
+
+        for row in scenario_threshold_rows:
+            row["tvar_99_stability_flag"] = stability_flag
+            threshold_rows.append(row)
+
+    summary = pd.DataFrame(summary_rows)
+    threshold_sensitivity = pd.DataFrame(threshold_rows)
+    if summary_path is not None:
+        summary.to_csv(summary_path, index=False)
+    if threshold_path is not None:
+        threshold_sensitivity.to_csv(threshold_path, index=False)
+    return summary, threshold_sensitivity
+
+
+def run_frequency_sensitivity_analysis(
+    airport_month: pd.DataFrame,
+    transition_matrix: pd.DataFrame,
+    stable_transition: bool,
+    frequency_df: pd.DataFrame,
+    severity_df: pd.DataFrame,
+) -> pd.DataFrame:
+    base_scenario = build_core_scenarios()["base"]
+    sensitivity_scenarios, metadata = build_frequency_sensitivity_scenarios(base_scenario)
+    sensitivity_simulations = run_annual_loss_simulations(
+        airport_month,
+        transition_matrix,
+        stable_transition,
+        frequency_df,
+        severity_df,
+        sensitivity_scenarios,
+        SIMULATION_RUNS,
+        seed_offset=10_000,
+    )
+    empirical_metrics = summarize_empirical_metrics(sensitivity_simulations)
+    evt_summary, _ = run_evt_tail_analysis(sensitivity_simulations, summary_path=None, threshold_path=None)
+
+    merged = empirical_metrics.merge(
+        evt_summary[
+            [
+                "scenario",
+                "threshold_quantile",
+                "fit_status",
+                "gpd_shape_xi",
+                "gpd_scale_beta",
+                "tail_mean_defined",
+                "evt_var_95_minutes",
+                "evt_tvar_95_minutes",
+                "evt_var_99_minutes",
+                "evt_tvar_99_minutes",
+            ]
+        ],
+        on="scenario",
+        how="left",
+    ).merge(metadata, on="scenario", how="left")
+
+    base_reference = merged.loc[merged["scenario"] == "base_reference"].iloc[0]
+    for source_col, target_col in (
+        ("expected_impact_minutes", "expected_impact_pct_change_vs_base"),
+        ("var_95_minutes", "var_95_pct_change_vs_base"),
+        ("tvar_95_minutes", "tvar_95_pct_change_vs_base"),
+        ("var_99_minutes", "var_99_pct_change_vs_base"),
+        ("tvar_99_minutes", "tvar_99_pct_change_vs_base"),
+        ("evt_var_95_minutes", "evt_var_95_pct_change_vs_base"),
+        ("evt_tvar_95_minutes", "evt_tvar_95_pct_change_vs_base"),
+        ("evt_var_99_minutes", "evt_var_99_pct_change_vs_base"),
+        ("evt_tvar_99_minutes", "evt_tvar_99_pct_change_vs_base"),
+    ):
+        base_value = float(base_reference[source_col])
+        merged[target_col] = np.where(
+            pd.notna(merged[source_col]) & (base_value != 0),
+            ((merged[source_col] - base_value) / base_value) * 100.0,
+            np.nan,
+        )
+
+    merged = merged.sort_values(["scenario_type", "shock_level_pct", "scenario"]).reset_index(drop=True)
+    merged.to_csv(SENSITIVITY_METRICS, index=False)
+    build_sensitivity_long_format(merged).to_csv(SENSITIVITY_LONG, index=False)
+    return merged
+
+
+def build_sensitivity_long_format(sensitivity_metrics: pd.DataFrame) -> pd.DataFrame:
+    metric_map = {
+        "expected_impact_minutes": ("Expected Impact", "expected_impact_pct_change_vs_base"),
+        "var_95_minutes": ("VaR 95%", "var_95_pct_change_vs_base"),
+        "tvar_95_minutes": ("TVaR 95%", "tvar_95_pct_change_vs_base"),
+        "var_99_minutes": ("VaR 99%", "var_99_pct_change_vs_base"),
+        "tvar_99_minutes": ("TVaR 99%", "tvar_99_pct_change_vs_base"),
+        "evt_var_99_minutes": ("EVT VaR 99%", "evt_var_99_pct_change_vs_base"),
+        "evt_tvar_99_minutes": ("EVT TVaR 99%", "evt_tvar_99_pct_change_vs_base"),
+    }
+    rows: list[dict[str, float | str]] = []
+    for row in sensitivity_metrics.itertuples(index=False):
+        row_dict = row._asdict()
+        for value_col, (metric_label, pct_col) in metric_map.items():
+            rows.append(
+                {
+                    "scenario": row_dict["scenario"],
+                    "scenario_type": row_dict["scenario_type"],
+                    "drivers": row_dict["drivers"],
+                    "shock_level_pct": float(row_dict["shock_level_pct"]),
+                    "metric": metric_label,
+                    "metric_value_minutes": row_dict[value_col],
+                    "pct_change_vs_base": row_dict[pct_col],
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 def build_risk_identification_assets(
@@ -1087,6 +1536,160 @@ def build_charts(
         save_chart(fig, "chart_7_markov_transition_matrix")
 
 
+def build_evt_and_sensitivity_charts(
+    simulations: pd.DataFrame,
+    evt_summary: pd.DataFrame,
+    threshold_sensitivity: pd.DataFrame,
+    sensitivity_metrics: pd.DataFrame,
+) -> None:
+    scenario_order = ["base", "disruption_stress", "weather_shock", "holiday_peak"]
+    fig, axes = plt.subplots(2, 2, figsize=(13, 9), sharey=True)
+    for ax, scenario_name in zip(axes.flat, scenario_order):
+        annual_series = simulations.loc[simulations["scenario"] == scenario_name, "aggregate_annual_impact_minutes"].astype(float)
+        row = evt_summary.loc[evt_summary["scenario"] == scenario_name].iloc[0]
+        threshold = float(row["threshold_value"])
+        exceedances = np.sort((annual_series.loc[annual_series > threshold] - threshold).to_numpy(dtype=float))
+        if len(exceedances) == 0:
+            ax.set_title(f"{scenario_name}: no exceedances")
+            continue
+
+        survival_empirical = 1.0 - (np.arange(1, len(exceedances) + 1) - 0.5) / len(exceedances)
+        ax.plot(exceedances, survival_empirical, color=CHART_STYLE["primary"], linewidth=2, label="Empirical tail")
+
+        if pd.notna(row["gpd_shape_xi"]) and pd.notna(row["gpd_scale_beta"]):
+            shape = float(row["gpd_shape_xi"])
+            scale = float(row["gpd_scale_beta"])
+            grid = np.linspace(0.0, float(exceedances.max()), 250)
+            survival_fit = 1.0 - stats.genpareto.cdf(grid, c=shape, loc=0, scale=scale)
+            ax.plot(grid, survival_fit, color=CHART_STYLE["secondary"], linewidth=2, linestyle="--", label="GPD fit")
+
+        ax.set_yscale("log")
+        ax.set_title(f"{scenario_name} tail above {threshold:,.0f}")
+        ax.set_xlabel("Exceedance minutes over threshold")
+        ax.set_ylabel("Survival probability")
+        ax.legend(frameon=False)
+
+    fig.tight_layout()
+    save_chart(fig, "chart_11_evt_tail_fit")
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    threshold_plot_df = threshold_sensitivity.loc[pd.notna(threshold_sensitivity["evt_tvar_99_minutes"])].copy()
+    threshold_plot_df["threshold_pct"] = threshold_plot_df["threshold_quantile"] * 100
+    sns.lineplot(
+        data=threshold_plot_df,
+        x="threshold_pct",
+        y="evt_tvar_99_minutes",
+        hue="scenario",
+        marker="o",
+        linewidth=2,
+        ax=ax,
+    )
+    ax.set_title("EVT TVaR99 Sensitivity to Threshold Selection")
+    ax.set_xlabel("Threshold quantile (%)")
+    ax.set_ylabel("EVT TVaR99 (minutes)")
+    ax.legend(frameon=False, title="Scenario")
+    fig.tight_layout()
+    save_chart(fig, "chart_12_evt_threshold_sensitivity")
+
+    tornado_df = sensitivity_metrics.loc[sensitivity_metrics["scenario"] != "base_reference"].copy()
+    tornado_df = tornado_df.sort_values("evt_tvar_99_pct_change_vs_base", ascending=True)
+    fig, ax = plt.subplots(figsize=(11, 9))
+    palette = {
+        "single_factor": CHART_STYLE["accent"],
+        "combination": CHART_STYLE["secondary"],
+    }
+    sns.barplot(
+        data=tornado_df,
+        y="scenario",
+        x="evt_tvar_99_pct_change_vs_base",
+        hue="scenario_type",
+        dodge=False,
+        palette=palette,
+        ax=ax,
+    )
+    ax.axvline(0, color=CHART_STYLE["ink"], linewidth=1)
+    ax.set_title("Sensitivity of EVT TVaR99 Relative to Base")
+    ax.set_xlabel("Percent change vs base (%)")
+    ax.set_ylabel("Sensitivity scenario")
+    ax.legend(frameon=False, title="")
+    fig.tight_layout()
+    save_chart(fig, "chart_13_sensitivity_tornado")
+
+    heatmap_metrics = [
+        ("expected_impact_pct_change_vs_base", "Expected\nImpact"),
+        ("var_95_pct_change_vs_base", "VaR 95%"),
+        ("tvar_95_pct_change_vs_base", "TVaR 95%"),
+        ("var_99_pct_change_vs_base", "VaR 99%"),
+        ("tvar_99_pct_change_vs_base", "TVaR 99%"),
+        ("evt_var_99_pct_change_vs_base", "EVT VaR 99%"),
+        ("evt_tvar_99_pct_change_vs_base", "EVT TVaR 99%"),
+    ]
+    heatmap_df = sensitivity_metrics.loc[sensitivity_metrics["scenario"] != "base_reference"].copy()
+    heatmap_df = heatmap_df.sort_values("evt_tvar_99_pct_change_vs_base", ascending=False)
+    heatmap_matrix = heatmap_df.set_index("scenario")[[col for col, _ in heatmap_metrics]].rename(
+        columns={col: label for col, label in heatmap_metrics}
+    )
+    fig_height = max(7, 0.35 * len(heatmap_matrix))
+    fig, ax = plt.subplots(figsize=(11.5, fig_height))
+    sns.heatmap(
+        heatmap_matrix,
+        annot=True,
+        fmt=".1f",
+        cmap="YlOrRd",
+        center=0,
+        linewidths=0.5,
+        cbar_kws={"label": "Percent change vs base (%)"},
+        ax=ax,
+    )
+    ax.set_title("Full Sensitivity Matrix Across Risk Metrics")
+    ax.set_xlabel("Risk metric")
+    ax.set_ylabel("Sensitivity scenario")
+    fig.tight_layout()
+    save_chart(fig, "chart_14_sensitivity_heatmap")
+
+    profile_metrics = [
+        ("expected_impact_pct_change_vs_base", "Expected Impact"),
+        ("var_95_pct_change_vs_base", "VaR 95%"),
+        ("tvar_95_pct_change_vs_base", "TVaR 95%"),
+        ("var_99_pct_change_vs_base", "VaR 99%"),
+        ("tvar_99_pct_change_vs_base", "TVaR 99%"),
+        ("evt_tvar_99_pct_change_vs_base", "EVT TVaR 99%"),
+    ]
+    single_factor_df = sensitivity_metrics.loc[sensitivity_metrics["scenario_type"] == "single_factor"].copy()
+    fig, axes = plt.subplots(3, 2, figsize=(13, 12), sharex=True)
+    driver_palette = {
+        "internal": CHART_STYLE["primary"],
+        "system": CHART_STYLE["secondary"],
+        "external": CHART_STYLE["accent"],
+        "cancel": CHART_STYLE["red"],
+        "divert": CHART_STYLE["ink"],
+    }
+    for ax, (metric_col, metric_label) in zip(axes.flat, profile_metrics, strict=False):
+        sns.lineplot(
+            data=single_factor_df,
+            x="shock_level_pct",
+            y=metric_col,
+            hue="drivers",
+            marker="o",
+            linewidth=2,
+            palette=driver_palette,
+            ax=ax,
+        )
+        ax.set_title(metric_label)
+        ax.set_xlabel("Shock level (%)")
+        ax.set_ylabel("Percent change vs base (%)")
+        legend = ax.get_legend()
+        if legend is not None:
+            legend.remove()
+
+    handles, labels = axes.flat[0].get_legend_handles_labels()
+    if handles:
+        fig.legend(handles, labels, loc="upper center", ncol=5, frameon=False, title="")
+    fig.suptitle("Single-Factor Sensitivity Profiles Across Core Metrics", y=0.98)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    save_chart(fig, "chart_15_single_factor_sensitivity_profiles")
+
+
 def main() -> None:
     ensure_output_directories()
     apply_style()
@@ -1100,7 +1703,14 @@ def main() -> None:
     frequency_df = build_frequency_models(model_df)
     severity_df = build_severity_models(model_df)
     simulations, scenario_metrics = simulate_aggregate_risk(
-        model_df,
+        airport_month,
+        transition_matrix,
+        stable_transition,
+        frequency_df,
+        severity_df,
+    )
+    evt_summary, threshold_sensitivity = run_evt_tail_analysis(simulations)
+    sensitivity_metrics = run_frequency_sensitivity_analysis(
         airport_month,
         transition_matrix,
         stable_transition,
@@ -1109,6 +1719,7 @@ def main() -> None:
     )
     heatmap = build_risk_identification_assets(monthly, airport_month, cause)
     build_charts(monthly, seasonal, heatmap, model_df, airport_month, simulations, transition_matrix, stable_transition)
+    build_evt_and_sensitivity_charts(simulations, evt_summary, threshold_sensitivity, sensitivity_metrics)
 
     print("Multi-year operational-risk outputs written to:")
     print(f"  Readable full dataset: {READABLE_FULL}")
@@ -1117,6 +1728,9 @@ def main() -> None:
     print(f"  Frequency summary: {FREQUENCY_SUMMARY}")
     print(f"  Severity summary: {SEVERITY_SUMMARY}")
     print(f"  Aggregate scenario metrics: {SCENARIO_METRICS}")
+    print(f"  EVT tail fit summary: {EVT_TAIL_SUMMARY}")
+    print(f"  EVT threshold sensitivity: {EVT_THRESHOLD_SENSITIVITY}")
+    print(f"  Sensitivity analysis metrics: {SENSITIVITY_METRICS}")
     print(f"  Required multi-year charts: {CHART_DIR}")
 
 
