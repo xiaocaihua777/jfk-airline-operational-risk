@@ -14,6 +14,21 @@ import seaborn as sns
 from scipy import stats
 
 try:
+    from numba import njit
+    NUMBA_AVAILABLE = True
+except ImportError:  # pragma: no cover - runtime fallback when numba is unavailable.
+    NUMBA_AVAILABLE = False
+
+    def njit(*args, **kwargs):  # type: ignore[no-redef]
+        if args and callable(args[0]) and len(args) == 1 and not kwargs:
+            return args[0]
+
+        def decorator(func):
+            return func
+
+        return decorator
+
+try:
     from joblib import Parallel, delayed
 except ImportError:  # pragma: no cover - serial fallback when joblib is unavailable.
     Parallel = None
@@ -146,6 +161,7 @@ CAUSE_LABELS = {
 CANCELLATION_PENALTY_MINUTES = 180.0
 DIVERSION_PENALTY_MINUTES = 240.0
 SIMULATION_RUNS = 50_000
+DEVELOPMENT_SIMULATION_RUNS = 5_000
 RANDOM_SEED = 7337
 DEFAULT_EVT_THRESHOLD = 0.95
 EVT_THRESHOLD_GRID = (0.90, 0.925, 0.95, 0.975)
@@ -153,12 +169,40 @@ MIN_EVT_EXCEEDANCES = 250
 TAIL_STABILITY_TOLERANCE = 0.15
 SENSITIVITY_LEVELS = (0.10, 0.20, 0.30)
 MAX_PARALLEL_SCENARIOS = 4
+SIMULATION_MODE_ENV = "JFK_SIMULATION_MODE"
+SIMULATION_RUNS_ENV = "JFK_SIMULATION_RUNS"
 SENSITIVITY_COMBINATIONS = {
     "internal_system_plus_20pct": ("internal", "system"),
     "external_system_plus_20pct": ("external", "system"),
     "internal_cancel_plus_20pct": ("internal", "cancel"),
     "external_cancel_divert_plus_20pct": ("external", "cancel", "divert"),
 }
+
+STATE_NAME_TO_CODE = {"normal": 0, "disrupted": 1}
+COUNT_MODEL_CODES = {"poisson": 0, "negative_binomial": 1}
+SEVERITY_MODEL_CODES = {"lognorm": 0, "weibull_min": 1}
+COUNT_MODEL_ORDER = (
+    "internal_ops_count",
+    "system_ops_count",
+    "external_ops_count",
+    "cancellation_count",
+    "diversion_count",
+)
+SEVERITY_MODEL_ORDER = (
+    "internal_avg_delay_minutes",
+    "system_avg_delay_minutes",
+    "external_avg_delay_minutes",
+)
+SCENARIO_MULTIPLIER_ORDER = (
+    "internal",
+    "system",
+    "external",
+    "cancel",
+    "divert",
+    "sev_internal",
+    "sev_system",
+    "sev_external",
+)
 
 
 def ensure_output_directories() -> None:
@@ -186,6 +230,22 @@ def save_chart(fig: plt.Figure, stem: str) -> None:
     fig.savefig(CHART_DIR / f"{stem}.png", dpi=320, bbox_inches="tight")
     fig.savefig(CHART_DIR / f"{stem}.svg", bbox_inches="tight")
     plt.close(fig)
+
+
+def resolve_simulation_runs(default_runs: int = SIMULATION_RUNS) -> int:
+    override = os.environ.get(SIMULATION_RUNS_ENV)
+    if override:
+        try:
+            parsed = int(override)
+            if parsed > 0:
+                return parsed
+        except ValueError:
+            pass
+
+    if os.environ.get(SIMULATION_MODE_ENV, "").strip().lower() == "dev":
+        return DEVELOPMENT_SIMULATION_RUNS
+
+    return default_runs
 
 
 def build_core_scenarios() -> dict[str, dict[str, dict[str, float]]]:
@@ -735,79 +795,349 @@ def build_severity_models(model_df: pd.DataFrame) -> pd.DataFrame:
     return summary
 
 
-def draw_count(model_name: str, params: pd.Series, multiplier: float, rng: np.random.Generator) -> int:
-    return int(draw_count_array(model_name, params, multiplier, rng, size=1)[0])
-
-
-def draw_count_array(
-    model_name: str,
-    params: pd.Series,
-    multiplier: float,
-    rng: np.random.Generator,
-    size: int,
-) -> np.ndarray:
-    size = max(int(size), 1)
-    if model_name == "poisson":
-        lam = max(float(params["param_1"]) * multiplier, 1e-9)
-        return rng.poisson(lam, size=size).astype(int)
-
-    dispersion = max(float(params["param_1"]), 1e-9)
-    base_p = min(max(float(params["param_2"]), 1e-9), 1 - 1e-9)
-    base_mean = dispersion * (1 - base_p) / base_p
-    scaled_mean = max(base_mean * multiplier, 1e-9)
-    if dispersion >= 1e5:
-        return rng.poisson(scaled_mean, size=size).astype(int)
-    p = dispersion / (dispersion + scaled_mean)
-    return rng.negative_binomial(dispersion, p, size=size).astype(int)
-
-
-def draw_severity(model_name: str, params: pd.Series, multiplier: float, rng: np.random.Generator) -> float:
-    return float(draw_severity_array(model_name, params, multiplier, rng, size=1)[0])
-
-
-def draw_severity_array(
-    model_name: str,
-    params: pd.Series,
-    multiplier: float,
-    rng: np.random.Generator,
-    size: int,
-) -> np.ndarray:
-    size = max(int(size), 1)
-    if model_name == "lognorm":
-        sigma = float(params["param_1"])
-        scale = max(float(params["param_2"]), 1e-9)
-        values = rng.lognormal(mean=float(np.log(scale)), sigma=sigma, size=size)
-    else:
-        shape = max(float(params["param_1"]), 1e-9)
-        scale = max(float(params["param_2"]), 1e-9)
-        values = rng.weibull(shape, size=size) * scale
-    return values.astype(float) * multiplier
-
-
-def simulate_states(
+def build_simulation_payload(
     airport_month: pd.DataFrame,
     transition_matrix: pd.DataFrame,
     stable_transition: bool,
+    frequency_df: pd.DataFrame,
+    severity_df: pd.DataFrame,
+) -> dict[str, np.ndarray | float | int | bool]:
+    selected_frequency = frequency_df.loc[frequency_df["selected"]].set_index("variable")
+    selected_severity = severity_df.loc[severity_df["selected"]].set_index("variable")
+
+    count_model_codes = np.array(
+        [COUNT_MODEL_CODES[str(selected_frequency.loc[var, "distribution"])] for var in COUNT_MODEL_ORDER],
+        dtype=np.int64,
+    )
+    count_param_1 = np.array([float(selected_frequency.loc[var, "param_1"]) for var in COUNT_MODEL_ORDER], dtype=np.float64)
+    count_param_2 = np.array(
+        [
+            0.0 if pd.isna(selected_frequency.loc[var, "param_2"]) else float(selected_frequency.loc[var, "param_2"])
+            for var in COUNT_MODEL_ORDER
+        ],
+        dtype=np.float64,
+    )
+
+    severity_model_codes = np.array(
+        [SEVERITY_MODEL_CODES[str(selected_severity.loc[var, "distribution"])] for var in SEVERITY_MODEL_ORDER],
+        dtype=np.int64,
+    )
+    severity_param_1 = np.array([float(selected_severity.loc[var, "param_1"]) for var in SEVERITY_MODEL_ORDER], dtype=np.float64)
+    severity_param_2 = np.array([float(selected_severity.loc[var, "param_2"]) for var in SEVERITY_MODEL_ORDER], dtype=np.float64)
+
+    month_sizes = airport_month["airlines_in_sample"].to_numpy(dtype=np.int64)
+    observed_states = airport_month["operational_state"].map(STATE_NAME_TO_CODE).to_numpy(dtype=np.int64)
+    disrupted_share = float((observed_states == STATE_NAME_TO_CODE["disrupted"]).mean())
+
+    p_normal_to_disrupted = disrupted_share
+    p_disrupted_to_disrupted = disrupted_share
+    if stable_transition:
+        transition_lookup = {
+            (str(row["from_state"]), str(row["to_state"])): float(row["transition_probability"])
+            for _, row in transition_matrix.iterrows()
+            if pd.notna(row["transition_probability"])
+        }
+        p_normal_to_disrupted = transition_lookup.get(("normal", "disrupted"), disrupted_share)
+        p_disrupted_to_disrupted = transition_lookup.get(("disrupted", "disrupted"), disrupted_share)
+
+    return {
+        "stable_transition": bool(stable_transition),
+        "initial_state_code": int(observed_states[0]) if len(observed_states) else STATE_NAME_TO_CODE["normal"],
+        "disrupted_share": disrupted_share,
+        "p_normal_to_disrupted": float(p_normal_to_disrupted),
+        "p_disrupted_to_disrupted": float(p_disrupted_to_disrupted),
+        "month_sizes": month_sizes,
+        "count_model_codes": count_model_codes,
+        "count_param_1": count_param_1,
+        "count_param_2": count_param_2,
+        "severity_model_codes": severity_model_codes,
+        "severity_param_1": severity_param_1,
+        "severity_param_2": severity_param_2,
+    }
+
+
+def build_scenario_multiplier_matrix(config: dict[str, dict[str, float]]) -> np.ndarray:
+    matrix = np.empty((2, len(SCENARIO_MULTIPLIER_ORDER)), dtype=np.float64)
+    for state_name, state_code in STATE_NAME_TO_CODE.items():
+        for idx, key in enumerate(SCENARIO_MULTIPLIER_ORDER):
+            matrix[state_code, idx] = float(config[state_name][key])
+    return matrix
+
+
+def draw_count_scalar_py(
+    model_code: int,
+    param_1: float,
+    param_2: float,
+    multiplier: float,
+    rng: np.random.Generator,
+) -> int:
+    if model_code == COUNT_MODEL_CODES["poisson"]:
+        lam = max(param_1 * multiplier, 1e-9)
+        return int(rng.poisson(lam))
+
+    dispersion = max(param_1, 1e-9)
+    base_p = min(max(param_2, 1e-9), 1 - 1e-9)
+    base_mean = dispersion * (1.0 - base_p) / base_p
+    scaled_mean = max(base_mean * multiplier, 1e-9)
+    if dispersion >= 1e5:
+        return int(rng.poisson(scaled_mean))
+    lam = rng.gamma(shape=dispersion, scale=scaled_mean / dispersion)
+    return int(rng.poisson(lam))
+
+
+def draw_severity_scalar_py(
+    model_code: int,
+    param_1: float,
+    param_2: float,
+    multiplier: float,
+    rng: np.random.Generator,
+) -> float:
+    if model_code == SEVERITY_MODEL_CODES["lognorm"]:
+        value = rng.lognormal(mean=float(np.log(max(param_2, 1e-9))), sigma=param_1)
+    else:
+        value = rng.weibull(max(param_1, 1e-9)) * max(param_2, 1e-9)
+    return float(value * multiplier)
+
+
+def simulate_states_python(
+    stable_transition: bool,
+    initial_state_code: int,
+    disrupted_share: float,
+    p_normal_to_disrupted: float,
+    p_disrupted_to_disrupted: float,
     months_to_simulate: int,
     rng: np.random.Generator,
-) -> list[str]:
-    observed_states = airport_month["operational_state"].tolist()
+) -> np.ndarray:
+    sequence = np.empty(months_to_simulate, dtype=np.int64)
     if not stable_transition:
-        disrupted_share = float((airport_month["operational_state"] == "disrupted").mean())
-        return ["disrupted" if rng.random() < disrupted_share else "normal" for _ in range(months_to_simulate)]
+        for idx in range(months_to_simulate):
+            sequence[idx] = 1 if rng.random() < disrupted_share else 0
+        return sequence
 
-    transition_lookup = {
-        (row["from_state"], row["to_state"]): float(row["transition_probability"])
-        for _, row in transition_matrix.iterrows()
-        if pd.notna(row["transition_probability"])
-    }
-    current_state = observed_states[0]
-    sequence = [current_state]
-    for _ in range(months_to_simulate - 1):
-        p_disrupted = transition_lookup[(current_state, "disrupted")]
-        current_state = "disrupted" if rng.random() < p_disrupted else "normal"
-        sequence.append(current_state)
+    current_state = initial_state_code
+    sequence[0] = current_state
+    for idx in range(1, months_to_simulate):
+        p_disrupted = p_normal_to_disrupted if current_state == 0 else p_disrupted_to_disrupted
+        current_state = 1 if rng.random() < p_disrupted else 0
+        sequence[idx] = current_state
     return sequence
+
+
+@njit
+def _draw_count_scalar_numba(model_code: int, param_1: float, param_2: float, multiplier: float) -> int:
+    if model_code == 0:
+        lam = max(param_1 * multiplier, 1e-9)
+        return int(np.random.poisson(lam))
+
+    dispersion = max(param_1, 1e-9)
+    base_p = min(max(param_2, 1e-9), 1 - 1e-9)
+    base_mean = dispersion * (1.0 - base_p) / base_p
+    scaled_mean = max(base_mean * multiplier, 1e-9)
+    if dispersion >= 1e5:
+        return int(np.random.poisson(scaled_mean))
+    lam = np.random.gamma(dispersion, scaled_mean / dispersion)
+    return int(np.random.poisson(lam))
+
+
+@njit
+def _draw_severity_scalar_numba(model_code: int, param_1: float, param_2: float, multiplier: float) -> float:
+    if model_code == 0:
+        value = np.random.lognormal(np.log(max(param_2, 1e-9)), param_1)
+    else:
+        value = np.random.weibull(max(param_1, 1e-9)) * max(param_2, 1e-9)
+    return float(value * multiplier)
+
+
+@njit
+def _simulate_states_numba(
+    stable_transition: bool,
+    initial_state_code: int,
+    disrupted_share: float,
+    p_normal_to_disrupted: float,
+    p_disrupted_to_disrupted: float,
+    months_to_simulate: int,
+) -> np.ndarray:
+    sequence = np.empty(months_to_simulate, dtype=np.int64)
+    if not stable_transition:
+        for idx in range(months_to_simulate):
+            sequence[idx] = 1 if np.random.random() < disrupted_share else 0
+        return sequence
+
+    current_state = initial_state_code
+    sequence[0] = current_state
+    for idx in range(1, months_to_simulate):
+        p_disrupted = p_normal_to_disrupted if current_state == 0 else p_disrupted_to_disrupted
+        current_state = 1 if np.random.random() < p_disrupted else 0
+        sequence[idx] = current_state
+    return sequence
+
+
+@njit
+def _annual_simulation_kernel_numba(
+    stable_transition: bool,
+    initial_state_code: int,
+    disrupted_share: float,
+    p_normal_to_disrupted: float,
+    p_disrupted_to_disrupted: float,
+    month_sizes: np.ndarray,
+    count_model_codes: np.ndarray,
+    count_param_1: np.ndarray,
+    count_param_2: np.ndarray,
+    severity_model_codes: np.ndarray,
+    severity_param_1: np.ndarray,
+    severity_param_2: np.ndarray,
+    scenario_matrix: np.ndarray,
+    cancellation_penalty: float,
+    diversion_penalty: float,
+    sim_runs: int,
+    seed: int,
+) -> np.ndarray:
+    np.random.seed(seed)
+    annual_totals = np.empty(sim_runs, dtype=np.float64)
+    month_count = 12
+    month_sizes_len = len(month_sizes)
+
+    for sim_index in range(sim_runs):
+        state_sequence = _simulate_states_numba(
+            stable_transition,
+            initial_state_code,
+            disrupted_share,
+            p_normal_to_disrupted,
+            p_disrupted_to_disrupted,
+            month_count,
+        )
+        annual_total = 0.0
+
+        for month_idx in range(month_count):
+            state_code = state_sequence[month_idx]
+            month_airlines = int(month_sizes[np.random.randint(0, month_sizes_len)])
+            monthly_total = 0.0
+            state_cfg = scenario_matrix[state_code]
+
+            for _airline_idx in range(month_airlines):
+                internal_count = _draw_count_scalar_numba(
+                    int(count_model_codes[0]), count_param_1[0], count_param_2[0], state_cfg[0]
+                )
+                if internal_count > 0:
+                    internal_severity = _draw_severity_scalar_numba(
+                        int(severity_model_codes[0]), severity_param_1[0], severity_param_2[0], state_cfg[5]
+                    )
+                    monthly_total += internal_count * internal_severity
+
+                system_count = _draw_count_scalar_numba(
+                    int(count_model_codes[1]), count_param_1[1], count_param_2[1], state_cfg[1]
+                )
+                if system_count > 0:
+                    system_severity = _draw_severity_scalar_numba(
+                        int(severity_model_codes[1]), severity_param_1[1], severity_param_2[1], state_cfg[6]
+                    )
+                    monthly_total += system_count * system_severity
+
+                external_count = _draw_count_scalar_numba(
+                    int(count_model_codes[2]), count_param_1[2], count_param_2[2], state_cfg[2]
+                )
+                if external_count > 0:
+                    external_severity = _draw_severity_scalar_numba(
+                        int(severity_model_codes[2]), severity_param_1[2], severity_param_2[2], state_cfg[7]
+                    )
+                    monthly_total += external_count * external_severity
+
+                cancel_total = _draw_count_scalar_numba(
+                    int(count_model_codes[3]), count_param_1[3], count_param_2[3], state_cfg[3]
+                )
+                divert_total = _draw_count_scalar_numba(
+                    int(count_model_codes[4]), count_param_1[4], count_param_2[4], state_cfg[4]
+                )
+                monthly_total += cancel_total * cancellation_penalty
+                monthly_total += divert_total * diversion_penalty
+
+            annual_total += monthly_total
+
+        annual_totals[sim_index] = annual_total
+
+    return annual_totals
+
+
+def _annual_simulation_kernel_python(
+    stable_transition: bool,
+    initial_state_code: int,
+    disrupted_share: float,
+    p_normal_to_disrupted: float,
+    p_disrupted_to_disrupted: float,
+    month_sizes: np.ndarray,
+    count_model_codes: np.ndarray,
+    count_param_1: np.ndarray,
+    count_param_2: np.ndarray,
+    severity_model_codes: np.ndarray,
+    severity_param_1: np.ndarray,
+    severity_param_2: np.ndarray,
+    scenario_matrix: np.ndarray,
+    cancellation_penalty: float,
+    diversion_penalty: float,
+    sim_runs: int,
+    seed: int,
+) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    annual_totals = np.empty(sim_runs, dtype=np.float64)
+
+    for sim_index in range(sim_runs):
+        state_sequence = simulate_states_python(
+            stable_transition,
+            initial_state_code,
+            disrupted_share,
+            p_normal_to_disrupted,
+            p_disrupted_to_disrupted,
+            12,
+            rng,
+        )
+        annual_total = 0.0
+        for state_code in state_sequence:
+            month_airlines = int(month_sizes[rng.integers(0, len(month_sizes))])
+            monthly_total = 0.0
+            state_cfg = scenario_matrix[int(state_code)]
+
+            for _ in range(month_airlines):
+                internal_count = draw_count_scalar_py(
+                    int(count_model_codes[0]), count_param_1[0], count_param_2[0], state_cfg[0], rng
+                )
+                if internal_count > 0:
+                    internal_severity = draw_severity_scalar_py(
+                        int(severity_model_codes[0]), severity_param_1[0], severity_param_2[0], state_cfg[5], rng
+                    )
+                    monthly_total += internal_count * internal_severity
+
+                system_count = draw_count_scalar_py(
+                    int(count_model_codes[1]), count_param_1[1], count_param_2[1], state_cfg[1], rng
+                )
+                if system_count > 0:
+                    system_severity = draw_severity_scalar_py(
+                        int(severity_model_codes[1]), severity_param_1[1], severity_param_2[1], state_cfg[6], rng
+                    )
+                    monthly_total += system_count * system_severity
+
+                external_count = draw_count_scalar_py(
+                    int(count_model_codes[2]), count_param_1[2], count_param_2[2], state_cfg[2], rng
+                )
+                if external_count > 0:
+                    external_severity = draw_severity_scalar_py(
+                        int(severity_model_codes[2]), severity_param_1[2], severity_param_2[2], state_cfg[7], rng
+                    )
+                    monthly_total += external_count * external_severity
+
+                cancel_total = draw_count_scalar_py(
+                    int(count_model_codes[3]), count_param_1[3], count_param_2[3], state_cfg[3], rng
+                )
+                divert_total = draw_count_scalar_py(
+                    int(count_model_codes[4]), count_param_1[4], count_param_2[4], state_cfg[4], rng
+                )
+                monthly_total += cancel_total * cancellation_penalty
+                monthly_total += divert_total * diversion_penalty
+
+            annual_total += monthly_total
+
+        annual_totals[sim_index] = annual_total
+
+    return annual_totals
 
 
 def run_annual_loss_simulations(
@@ -825,16 +1155,19 @@ def run_annual_loss_simulations(
     if not scenario_items:
         return pd.DataFrame(columns=["scenario", "simulation_id", "aggregate_annual_impact_minutes"])
 
+    payload = build_simulation_payload(
+        airport_month,
+        transition_matrix,
+        stable_transition,
+        frequency_df,
+        severity_df,
+    )
     worker_count = min(MAX_PARALLEL_SCENARIOS, len(scenario_items), os.cpu_count() or 1)
     parallel_inputs = [
         (
             scenario_name,
-            config,
-            airport_month,
-            transition_matrix,
-            stable_transition,
-            frequency_df,
-            severity_df,
+            build_scenario_multiplier_matrix(config),
+            payload,
             sim_runs,
             RANDOM_SEED + seed_offset + index * 1_000,
         )
@@ -847,11 +1180,8 @@ def run_annual_loss_simulations(
         ]
         try:
             results = Parallel(n_jobs=worker_count, prefer="processes")(parallel_job)
-        except (PermissionError, OSError):
-            try:
-                results = Parallel(n_jobs=worker_count, prefer="threads")(parallel_job)
-            except RuntimeError:
-                results = [_simulate_single_scenario(*scenario_input) for scenario_input in parallel_inputs]
+        except (PermissionError, OSError, RuntimeError):
+            results = [_simulate_single_scenario(*scenario_input) for scenario_input in parallel_inputs]
     else:
         results = [_simulate_single_scenario(*scenario_input) for scenario_input in parallel_inputs]
 
@@ -870,100 +1200,34 @@ def run_annual_loss_simulations(
 
 def _simulate_single_scenario(
     scenario_name: str,
-    config: dict[str, dict[str, float]],
-    airport_month: pd.DataFrame,
-    transition_matrix: pd.DataFrame,
-    stable_transition: bool,
-    frequency_df: pd.DataFrame,
-    severity_df: pd.DataFrame,
+    scenario_matrix: np.ndarray,
+    payload: dict[str, np.ndarray | float | int | bool],
     sim_runs: int,
     seed: int,
 ) -> tuple[str, np.ndarray]:
-    selected_frequency = frequency_df.loc[frequency_df["selected"]].set_index("variable")
-    selected_severity = severity_df.loc[severity_df["selected"]].set_index("variable")
-    frequency_models = {
-        variable: (str(row["distribution"]), row.copy())
-        for variable, row in selected_frequency.iterrows()
-    }
-    severity_models = {
-        variable: (str(row["distribution"]), row.copy())
-        for variable, row in selected_severity.iterrows()
-    }
-    internal_count_model, internal_count_params = frequency_models["internal_ops_count"]
-    system_count_model, system_count_params = frequency_models["system_ops_count"]
-    external_count_model, external_count_params = frequency_models["external_ops_count"]
-    cancel_count_model, cancel_count_params = frequency_models["cancellation_count"]
-    divert_count_model, divert_count_params = frequency_models["diversion_count"]
-    internal_sev_model, internal_sev_params = severity_models["internal_avg_delay_minutes"]
-    system_sev_model, system_sev_params = severity_models["system_avg_delay_minutes"]
-    external_sev_model, external_sev_params = severity_models["external_avg_delay_minutes"]
-    month_sizes = airport_month["airlines_in_sample"].to_numpy(dtype=int)
-    rng = np.random.default_rng(seed)
-    annual_totals = np.empty(sim_runs, dtype=float)
-
-    for sim_index in range(sim_runs):
-        state_sequence = simulate_states(airport_month, transition_matrix, stable_transition, 12, rng)
-        sampled_month_sizes = rng.choice(month_sizes, size=len(state_sequence))
-        annual_total = 0.0
-        for state, month_airlines in zip(state_sequence, sampled_month_sizes, strict=False):
-            month_airlines = int(month_airlines)
-            state_cfg = config[state]
-            monthly_total = 0.0
-
-            internal_counts = draw_count_array(
-                internal_count_model, internal_count_params, state_cfg["internal"], rng, month_airlines
-            )
-            if np.any(internal_counts):
-                internal_positive = internal_counts[internal_counts > 0]
-                internal_severity = draw_severity_array(
-                    internal_sev_model,
-                    internal_sev_params,
-                    state_cfg["sev_internal"],
-                    rng,
-                    len(internal_positive),
-                )
-                monthly_total += float(np.dot(internal_positive, internal_severity))
-
-            system_counts = draw_count_array(
-                system_count_model, system_count_params, state_cfg["system"], rng, month_airlines
-            )
-            if np.any(system_counts):
-                system_positive = system_counts[system_counts > 0]
-                system_severity = draw_severity_array(
-                    system_sev_model,
-                    system_sev_params,
-                    state_cfg["sev_system"],
-                    rng,
-                    len(system_positive),
-                )
-                monthly_total += float(np.dot(system_positive, system_severity))
-
-            external_counts = draw_count_array(
-                external_count_model, external_count_params, state_cfg["external"], rng, month_airlines
-            )
-            if np.any(external_counts):
-                external_positive = external_counts[external_counts > 0]
-                external_severity = draw_severity_array(
-                    external_sev_model,
-                    external_sev_params,
-                    state_cfg["sev_external"],
-                    rng,
-                    len(external_positive),
-                )
-                monthly_total += float(np.dot(external_positive, external_severity))
-
-            cancel_total = int(
-                draw_count_array(cancel_count_model, cancel_count_params, state_cfg["cancel"], rng, month_airlines).sum()
-            )
-            divert_total = int(
-                draw_count_array(divert_count_model, divert_count_params, state_cfg["divert"], rng, month_airlines).sum()
-            )
-            monthly_total += cancel_total * CANCELLATION_PENALTY_MINUTES
-            monthly_total += divert_total * DIVERSION_PENALTY_MINUTES
-            annual_total += monthly_total
-
-        annual_totals[sim_index] = annual_total
-
+    kernel_args = (
+        bool(payload["stable_transition"]),
+        int(payload["initial_state_code"]),
+        float(payload["disrupted_share"]),
+        float(payload["p_normal_to_disrupted"]),
+        float(payload["p_disrupted_to_disrupted"]),
+        np.asarray(payload["month_sizes"], dtype=np.int64),
+        np.asarray(payload["count_model_codes"], dtype=np.int64),
+        np.asarray(payload["count_param_1"], dtype=np.float64),
+        np.asarray(payload["count_param_2"], dtype=np.float64),
+        np.asarray(payload["severity_model_codes"], dtype=np.int64),
+        np.asarray(payload["severity_param_1"], dtype=np.float64),
+        np.asarray(payload["severity_param_2"], dtype=np.float64),
+        np.asarray(scenario_matrix, dtype=np.float64),
+        CANCELLATION_PENALTY_MINUTES,
+        DIVERSION_PENALTY_MINUTES,
+        sim_runs,
+        seed,
+    )
+    if NUMBA_AVAILABLE:
+        annual_totals = _annual_simulation_kernel_numba(*kernel_args)
+    else:
+        annual_totals = _annual_simulation_kernel_python(*kernel_args)
     return scenario_name, annual_totals
 
 
@@ -993,7 +1257,9 @@ def simulate_aggregate_risk(
     stable_transition: bool,
     frequency_df: pd.DataFrame,
     severity_df: pd.DataFrame,
+    sim_runs: int | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    resolved_runs = resolve_simulation_runs() if sim_runs is None else int(sim_runs)
     simulations = run_annual_loss_simulations(
         airport_month,
         transition_matrix,
@@ -1001,7 +1267,7 @@ def simulate_aggregate_risk(
         frequency_df,
         severity_df,
         build_core_scenarios(),
-        SIMULATION_RUNS,
+        resolved_runs,
     )
     metrics = summarize_empirical_metrics(simulations)
     simulations.to_csv(AGGREGATE_SIMULATIONS, index=False)
@@ -1146,7 +1412,9 @@ def run_frequency_sensitivity_analysis(
     stable_transition: bool,
     frequency_df: pd.DataFrame,
     severity_df: pd.DataFrame,
+    sim_runs: int | None = None,
 ) -> pd.DataFrame:
+    resolved_runs = resolve_simulation_runs() if sim_runs is None else int(sim_runs)
     base_scenario = build_core_scenarios()["base"]
     sensitivity_scenarios, metadata = build_frequency_sensitivity_scenarios(base_scenario)
     sensitivity_simulations = run_annual_loss_simulations(
@@ -1156,7 +1424,7 @@ def run_frequency_sensitivity_analysis(
         frequency_df,
         severity_df,
         sensitivity_scenarios,
-        SIMULATION_RUNS,
+        resolved_runs,
         seed_offset=10_000,
     )
     empirical_metrics = summarize_empirical_metrics(sensitivity_simulations)
@@ -1693,6 +1961,7 @@ def build_evt_and_sensitivity_charts(
 def main() -> None:
     ensure_output_directories()
     apply_style()
+    sim_runs = resolve_simulation_runs()
 
     raw_df, used_files = load_multiyear_raw()
     _, cleaned, cleaning_summary = build_readable_and_core(raw_df)
@@ -1708,6 +1977,7 @@ def main() -> None:
         stable_transition,
         frequency_df,
         severity_df,
+        sim_runs=sim_runs,
     )
     evt_summary, threshold_sensitivity = run_evt_tail_analysis(simulations)
     sensitivity_metrics = run_frequency_sensitivity_analysis(
@@ -1716,6 +1986,7 @@ def main() -> None:
         stable_transition,
         frequency_df,
         severity_df,
+        sim_runs=sim_runs,
     )
     heatmap = build_risk_identification_assets(monthly, airport_month, cause)
     build_charts(monthly, seasonal, heatmap, model_df, airport_month, simulations, transition_matrix, stable_transition)
@@ -1731,6 +2002,7 @@ def main() -> None:
     print(f"  EVT tail fit summary: {EVT_TAIL_SUMMARY}")
     print(f"  EVT threshold sensitivity: {EVT_THRESHOLD_SENSITIVITY}")
     print(f"  Sensitivity analysis metrics: {SENSITIVITY_METRICS}")
+    print(f"  Simulation runs used: {sim_runs}")
     print(f"  Required multi-year charts: {CHART_DIR}")
 
 

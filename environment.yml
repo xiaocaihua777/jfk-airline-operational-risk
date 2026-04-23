@@ -3,6 +3,7 @@ channels:
   - defaults
 dependencies:
   - matplotlib
+  - numba
   - numpy
   - pandas
   - scipy

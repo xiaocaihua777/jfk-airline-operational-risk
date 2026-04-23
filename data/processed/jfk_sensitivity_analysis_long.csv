@@ -1,141 +1,141 @@
 scenario,scenario_type,drivers,shock_level_pct,metric,metric_value_minutes,pct_change_vs_base
-external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,Expected Impact,2494289.84,6.176862768223284
-external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,VaR 95%,2953016.8,6.134536264117341
-external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,TVaR 95%,3096629.22,6.463093522406938
-external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,VaR 99%,3183374.21,6.507402404734069
-external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,TVaR 99%,3301668.87,6.522594808148767
-external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,EVT VaR 99%,3187933.91,6.677205241149043
-external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,EVT TVaR 99%,3307871.12,6.734333794168499
-external_system_plus_20pct,combination,"external,system",20.0,Expected Impact,2452046.6,4.378653665000101
-external_system_plus_20pct,combination,"external,system",20.0,VaR 95%,2899197.14,4.20020095793404
-external_system_plus_20pct,combination,"external,system",20.0,TVaR 95%,3032039.25,4.242469893233962
-external_system_plus_20pct,combination,"external,system",20.0,VaR 99%,3115729.7,4.244193440984553
-external_system_plus_20pct,combination,"external,system",20.0,TVaR 99%,3224996.26,4.048886604965674
-external_system_plus_20pct,combination,"external,system",20.0,EVT VaR 99%,3117124.51,4.307724219880739
-external_system_plus_20pct,combination,"external,system",20.0,EVT TVaR 99%,3225501.46,4.07653049228164
-internal_cancel_plus_20pct,combination,"internal,cancel",20.0,Expected Impact,2699416.91,14.908706362405493
-internal_cancel_plus_20pct,combination,"internal,cancel",20.0,VaR 95%,3216279.91,15.596489916158657
-internal_cancel_plus_20pct,combination,"internal,cancel",20.0,TVaR 95%,3363342.79,15.632790547549977
-internal_cancel_plus_20pct,combination,"internal,cancel",20.0,VaR 99%,3456294.78,15.638613206846893
-internal_cancel_plus_20pct,combination,"internal,cancel",20.0,TVaR 99%,3581980.08,15.566347715753912
-internal_cancel_plus_20pct,combination,"internal,cancel",20.0,EVT VaR 99%,3456292.28,15.657228580048868
-internal_cancel_plus_20pct,combination,"internal,cancel",20.0,EVT TVaR 99%,3584101.21,15.647388009549536
-internal_system_plus_20pct,combination,"internal,system",20.0,Expected Impact,2672648.78,13.76924132510574
-internal_system_plus_20pct,combination,"internal,system",20.0,VaR 95%,3176486.22,14.166262755111674
-internal_system_plus_20pct,combination,"internal,system",20.0,TVaR 95%,3323458.19,14.261545365053182
-internal_system_plus_20pct,combination,"internal,system",20.0,VaR 99%,3418390.92,14.3704488619103
-internal_system_plus_20pct,combination,"internal,system",20.0,TVaR 99%,3547581.41,14.456534548345267
-internal_system_plus_20pct,combination,"internal,system",20.0,EVT VaR 99%,3416371.34,14.321362018812788
-internal_system_plus_20pct,combination,"internal,system",20.0,EVT TVaR 99%,3544836.91,14.3804556683662
-base_reference,reference,none,0.0,Expected Impact,2349183.97,0.0
-base_reference,reference,none,0.0,VaR 95%,2782333.54,0.0
-base_reference,reference,none,0.0,TVaR 95%,2908641.03,0.0
-base_reference,reference,none,0.0,VaR 99%,2988876.02,0.0
-base_reference,reference,none,0.0,TVaR 99%,3099500.98,0.0
-base_reference,reference,none,0.0,EVT VaR 99%,2988392.79,0.0
-base_reference,reference,none,0.0,EVT TVaR 99%,3099163.13,0.0
-cancel_plus_10pct,single_factor,cancel,10.0,Expected Impact,2406067.72,2.4214259388122756
-cancel_plus_10pct,single_factor,cancel,10.0,VaR 95%,2855040.6,2.61316836945437
-cancel_plus_10pct,single_factor,cancel,10.0,TVaR 95%,2987751.51,2.7198433627266816
-cancel_plus_10pct,single_factor,cancel,10.0,VaR 99%,3065731.54,2.5713853463885066
-cancel_plus_10pct,single_factor,cancel,10.0,TVaR 99%,3184660.16,2.7475126012058935
-cancel_plus_10pct,single_factor,cancel,10.0,EVT VaR 99%,3071723.29,2.7884721271864668
-cancel_plus_10pct,single_factor,cancel,10.0,EVT TVaR 99%,3186757.79,2.8263972022666697
-divert_plus_10pct,single_factor,divert,10.0,Expected Impact,2357953.86,0.3733164414534833
-divert_plus_10pct,single_factor,divert,10.0,VaR 95%,2793028.6,0.3843917289657535
-divert_plus_10pct,single_factor,divert,10.0,TVaR 95%,2921711.38,0.4493627733773698
-divert_plus_10pct,single_factor,divert,10.0,VaR 99%,3002751.39,0.4642337088307902
-divert_plus_10pct,single_factor,divert,10.0,TVaR 99%,3109623.24,0.3265770866121888
-divert_plus_10pct,single_factor,divert,10.0,EVT VaR 99%,3002967.08,0.4876965989467548
-divert_plus_10pct,single_factor,divert,10.0,EVT TVaR 99%,3115144.98,0.5156827611071927
-external_plus_10pct,single_factor,external,10.0,Expected Impact,2356933.31,0.3298736965244935
-external_plus_10pct,single_factor,external,10.0,VaR 95%,2795250.01,0.4642315457261727
-external_plus_10pct,single_factor,external,10.0,TVaR 95%,2923567.03,0.5131606082033436
-external_plus_10pct,single_factor,external,10.0,VaR 99%,3000323.83,0.3830138795787206
-external_plus_10pct,single_factor,external,10.0,TVaR 99%,3115172.59,0.5056171977722643
-external_plus_10pct,single_factor,external,10.0,EVT VaR 99%,3003606.96,0.5091087774977507
-external_plus_10pct,single_factor,external,10.0,EVT TVaR 99%,3121675.73,0.726409003194359
-internal_plus_10pct,single_factor,internal,10.0,Expected Impact,2467138.63,5.021090791795232
-internal_plus_10pct,single_factor,internal,10.0,VaR 95%,2926382.33,5.177265339654427
-internal_plus_10pct,single_factor,internal,10.0,TVaR 95%,3065540.54,5.394254855849305
-internal_plus_10pct,single_factor,internal,10.0,VaR 99%,3151978.43,5.456981450839843
-internal_plus_10pct,single_factor,internal,10.0,TVaR 99%,3273146.33,5.602364739371693
-internal_plus_10pct,single_factor,internal,10.0,EVT VaR 99%,3153616.73,5.52885619831789
-internal_plus_10pct,single_factor,internal,10.0,EVT TVaR 99%,3273475.21,5.624488698663631
-system_plus_10pct,single_factor,system,10.0,Expected Impact,2392212.27,1.831627516171065
-system_plus_10pct,single_factor,system,10.0,VaR 95%,2833059.97,1.8231613597268488
-system_plus_10pct,single_factor,system,10.0,TVaR 95%,2958690.64,1.720721446331256
-system_plus_10pct,single_factor,system,10.0,VaR 99%,3037724.26,1.6343347690948973
-system_plus_10pct,single_factor,system,10.0,TVaR 99%,3141157.71,1.3439818302622373
-system_plus_10pct,single_factor,system,10.0,EVT VaR 99%,3038728.93,1.684388349765766
-system_plus_10pct,single_factor,system,10.0,EVT TVaR 99%,3143400.04,1.427382430172372
-cancel_plus_20pct,single_factor,cancel,20.0,Expected Impact,2463006.44,4.845191839104867
-cancel_plus_20pct,single_factor,cancel,20.0,VaR 95%,2921263.43,4.993286678346987
-cancel_plus_20pct,single_factor,cancel,20.0,TVaR 95%,3054353.64,5.009645690104301
-cancel_plus_20pct,single_factor,cancel,20.0,VaR 99%,3139956.76,5.054767711642979
-cancel_plus_20pct,single_factor,cancel,20.0,TVaR 99%,3260844.28,5.205460525455289
-cancel_plus_20pct,single_factor,cancel,20.0,EVT VaR 99%,3136731.06,4.963814345168462
-cancel_plus_20pct,single_factor,cancel,20.0,EVT TVaR 99%,3263079.69,5.289058791816488
-divert_plus_20pct,single_factor,divert,20.0,Expected Impact,2361265.71,0.5142951831056364
-divert_plus_20pct,single_factor,divert,20.0,VaR 95%,2796308.45,0.5022729949192271
-divert_plus_20pct,single_factor,divert,20.0,TVaR 95%,2930905.81,0.7654701893550702
-divert_plus_20pct,single_factor,divert,20.0,VaR 99%,3010533.08,0.7245887703297929
-divert_plus_20pct,single_factor,divert,20.0,TVaR 99%,3134261.86,1.12149924211348
-divert_plus_20pct,single_factor,divert,20.0,EVT VaR 99%,3015378.76,0.903026204932041
-divert_plus_20pct,single_factor,divert,20.0,EVT TVaR 99%,3136035.95,1.1897669936464526
-external_plus_20pct,single_factor,external,20.0,Expected Impact,2364640.47,0.6579518759443944
-external_plus_20pct,single_factor,external,20.0,VaR 95%,2801596.09,0.6923163496781846
-external_plus_20pct,single_factor,external,20.0,TVaR 95%,2925894.24,0.5931708252083768
-external_plus_20pct,single_factor,external,20.0,VaR 99%,3003915.68,0.5031878170711193
-external_plus_20pct,single_factor,external,20.0,TVaR 99%,3106843.07,0.2368797444290484
-external_plus_20pct,single_factor,external,20.0,EVT VaR 99%,3004259.95,0.5309596533995167
-external_plus_20pct,single_factor,external,20.0,EVT TVaR 99%,3112969.15,0.4454757436405104
-internal_plus_20pct,single_factor,internal,20.0,Expected Impact,2587599.48,10.148865012049258
-internal_plus_20pct,single_factor,internal,20.0,VaR 95%,3081294.16,10.744959786525095
-internal_plus_20pct,single_factor,internal,20.0,TVaR 95%,3226960.11,10.943910806346569
-internal_plus_20pct,single_factor,internal,20.0,VaR 99%,3314091.33,10.88085647660956
-internal_plus_20pct,single_factor,internal,20.0,TVaR 99%,3440277.02,10.9945453219376
-internal_plus_20pct,single_factor,internal,20.0,EVT VaR 99%,3320036.42,11.09772554363578
-internal_plus_20pct,single_factor,internal,20.0,EVT TVaR 99%,3440277.18,11.00665036628776
-system_plus_20pct,single_factor,system,20.0,Expected Impact,2436506.03,3.7171230995586777
-system_plus_20pct,single_factor,system,20.0,VaR 95%,2884141.04,3.6590688548433343
-system_plus_20pct,single_factor,system,20.0,TVaR 95%,3010969.0,3.518068023677718
-system_plus_20pct,single_factor,system,20.0,VaR 99%,3092470.59,3.4660042540004663
-system_plus_20pct,single_factor,system,20.0,TVaR 99%,3197200.41,3.152101923194106
-system_plus_20pct,single_factor,system,20.0,EVT VaR 99%,3090881.1,3.429546154138595
-system_plus_20pct,single_factor,system,20.0,EVT TVaR 99%,3202422.27,3.331839456931076
-cancel_plus_30pct,single_factor,cancel,30.0,Expected Impact,2513965.14,7.014400409006703
-cancel_plus_30pct,single_factor,cancel,30.0,VaR 95%,2990275.06,7.473637398627629
-cancel_plus_30pct,single_factor,cancel,30.0,TVaR 95%,3123368.12,7.382385374657262
-cancel_plus_30pct,single_factor,cancel,30.0,VaR 99%,3209631.43,7.385900536617111
-cancel_plus_30pct,single_factor,cancel,30.0,TVaR 99%,3325520.53,7.292127070080805
-cancel_plus_30pct,single_factor,cancel,30.0,EVT VaR 99%,3207290.78,7.324940373718401
-cancel_plus_30pct,single_factor,cancel,30.0,EVT TVaR 99%,3324550.54,7.2725248896465855
-divert_plus_30pct,single_factor,divert,30.0,Expected Impact,2369638.46,0.8707061797292852
-divert_plus_30pct,single_factor,divert,30.0,VaR 95%,2805652.92,0.8381230957665804
-divert_plus_30pct,single_factor,divert,30.0,TVaR 95%,2931337.39,0.7803080464693966
-divert_plus_30pct,single_factor,divert,30.0,VaR 99%,3006617.3,0.5935769794827352
-divert_plus_30pct,single_factor,divert,30.0,TVaR 99%,3117437.31,0.578684443584208
-divert_plus_30pct,single_factor,divert,30.0,EVT VaR 99%,3011134.98,0.7610174297067537
-divert_plus_30pct,single_factor,divert,30.0,EVT TVaR 99%,3118333.72,0.6185731178339204
-external_plus_30pct,single_factor,external,30.0,Expected Impact,2374069.77,1.0593380645279906
-external_plus_30pct,single_factor,external,30.0,VaR 95%,2814287.06,1.1484431877279535
-external_plus_30pct,single_factor,external,30.0,TVaR 95%,2945073.65,1.2525650165912745
-external_plus_30pct,single_factor,external,30.0,VaR 99%,3027858.79,1.3042618609519985
-external_plus_30pct,single_factor,external,30.0,TVaR 99%,3139392.89,1.2870429871585376
-external_plus_30pct,single_factor,external,30.0,EVT VaR 99%,3027577.08,1.3112161872134631
-external_plus_30pct,single_factor,external,30.0,EVT TVaR 99%,3142156.1,1.387244497839654
-internal_plus_30pct,single_factor,internal,30.0,Expected Impact,2706100.99,15.193234099924494
-internal_plus_30pct,single_factor,internal,30.0,VaR 95%,3235290.29,16.279743010250307
-internal_plus_30pct,single_factor,internal,30.0,TVaR 95%,3390948.5,16.581883602185187
-internal_plus_30pct,single_factor,internal,30.0,VaR 99%,3488900.18,16.729504892611775
-internal_plus_30pct,single_factor,internal,30.0,TVaR 99%,3628848.91,17.07848887339278
-internal_plus_30pct,single_factor,internal,30.0,EVT VaR 99%,3488554.48,16.736812231433603
-internal_plus_30pct,single_factor,internal,30.0,EVT TVaR 99%,3629001.98,17.096191061101067
-system_plus_30pct,single_factor,system,30.0,Expected Impact,2479806.84,5.560350814074371
-system_plus_30pct,single_factor,system,30.0,VaR 95%,2931113.11,5.34729455908438
-system_plus_30pct,single_factor,system,30.0,TVaR 95%,3064105.3,5.344910849999253
-system_plus_30pct,single_factor,system,30.0,VaR 99%,3150986.87,5.423806438113819
-system_plus_30pct,single_factor,system,30.0,TVaR 99%,3256311.41,5.059215370856252
-system_plus_30pct,single_factor,system,30.0,EVT VaR 99%,3148692.07,5.364063269607868
-system_plus_30pct,single_factor,system,30.0,EVT TVaR 99%,3259925.78,5.187292286869711
+external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,Expected Impact,2492592.69,6.110171151618942
+external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,VaR 95%,2952938.4,6.096599458679758
+external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,TVaR 95%,3092824.06,6.191183501627724
+external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,VaR 99%,3179090.56,6.192499142985145
+external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,TVaR 99%,3296431.06,6.067324573476715
+external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,EVT VaR 99%,3181890.68,6.2744336891081876
+external_cancel_divert_plus_20pct,combination,"external,cancel,divert",20.0,EVT TVaR 99%,3299284.81,6.1602031672323125
+external_system_plus_20pct,combination,"external,system",20.0,Expected Impact,2452943.94,4.42231590542236
+external_system_plus_20pct,combination,"external,system",20.0,VaR 95%,2903398.09,4.316657680304417
+external_system_plus_20pct,combination,"external,system",20.0,TVaR 95%,3032317.76,4.113717896841732
+external_system_plus_20pct,combination,"external,system",20.0,VaR 99%,3112459.03,3.9667781202971923
+external_system_plus_20pct,combination,"external,system",20.0,TVaR 99%,3227019.63,3.833913790446666
+external_system_plus_20pct,combination,"external,system",20.0,EVT VaR 99%,3113961.11,4.005601315993889
+external_system_plus_20pct,combination,"external,system",20.0,EVT TVaR 99%,3225563.82,3.788102628240189
+internal_cancel_plus_20pct,combination,"internal,cancel",20.0,Expected Impact,2698026.76,14.855540748315324
+internal_cancel_plus_20pct,combination,"internal,cancel",20.0,VaR 95%,3209391.29,15.310736655158653
+internal_cancel_plus_20pct,combination,"internal,cancel",20.0,TVaR 95%,3358426.55,15.310565078761218
+internal_cancel_plus_20pct,combination,"internal,cancel",20.0,VaR 99%,3449665.37,15.23062332873919
+internal_cancel_plus_20pct,combination,"internal,cancel",20.0,TVaR 99%,3580994.6,15.22355833343817
+internal_cancel_plus_20pct,combination,"internal,cancel",20.0,EVT VaR 99%,3452556.93,15.314625615973688
+internal_cancel_plus_20pct,combination,"internal,cancel",20.0,EVT TVaR 99%,3582325.16,15.267516658159625
+internal_system_plus_20pct,combination,"internal,system",20.0,Expected Impact,2672598.95,13.77307377248912
+internal_system_plus_20pct,combination,"internal,system",20.0,VaR 95%,3171987.85,13.96686243412622
+internal_system_plus_20pct,combination,"internal,system",20.0,TVaR 95%,3318111.83,13.926371297839612
+internal_system_plus_20pct,combination,"internal,system",20.0,VaR 99%,3404385.35,13.718115775307197
+internal_system_plus_20pct,combination,"internal,system",20.0,TVaR 99%,3534071.12,13.713729099127702
+internal_system_plus_20pct,combination,"internal,system",20.0,EVT VaR 99%,3409999.59,13.893220023304217
+internal_system_plus_20pct,combination,"internal,system",20.0,EVT TVaR 99%,3539735.2,13.897110928778444
+base_reference,reference,none,0.0,Expected Impact,2349061.04,0.0
+base_reference,reference,none,0.0,VaR 95%,2783254.52,0.0
+base_reference,reference,none,0.0,TVaR 95%,2912505.5,0.0
+base_reference,reference,none,0.0,VaR 99%,2993705.38,0.0
+base_reference,reference,none,0.0,TVaR 99%,3107866.7,0.0
+base_reference,reference,none,0.0,EVT VaR 99%,2994032.12,0.0
+base_reference,reference,none,0.0,EVT TVaR 99%,3107835.81,0.0
+cancel_plus_10pct,single_factor,cancel,10.0,Expected Impact,2404490.37,2.359637704433601
+cancel_plus_10pct,single_factor,cancel,10.0,VaR 95%,2851620.32,2.4563258411595004
+cancel_plus_10pct,single_factor,cancel,10.0,TVaR 95%,2984420.76,2.469188813549014
+cancel_plus_10pct,single_factor,cancel,10.0,VaR 99%,3073825.66,2.6762914124836246
+cancel_plus_10pct,single_factor,cancel,10.0,TVaR 99%,3183072.48,2.4198521770576518
+cancel_plus_10pct,single_factor,cancel,10.0,EVT VaR 99%,3068721.53,2.4946095100676366
+cancel_plus_10pct,single_factor,cancel,10.0,EVT TVaR 99%,3182425.8,2.4000621191117477
+divert_plus_10pct,single_factor,divert,10.0,Expected Impact,2355898.91,0.2910894984661664
+divert_plus_10pct,single_factor,divert,10.0,VaR 95%,2796318.3,0.4693706560476472
+divert_plus_10pct,single_factor,divert,10.0,TVaR 95%,2922624.13,0.3474201164598621
+divert_plus_10pct,single_factor,divert,10.0,VaR 99%,2997441.79,0.12480887481319718
+divert_plus_10pct,single_factor,divert,10.0,TVaR 99%,3114267.2,0.2059451262822823
+divert_plus_10pct,single_factor,divert,10.0,EVT VaR 99%,3001969.81,0.2651170622711938
+divert_plus_10pct,single_factor,divert,10.0,EVT TVaR 99%,3115068.33,0.2327188578215147
+external_plus_10pct,single_factor,external,10.0,Expected Impact,2356787.65,0.3289233386630034
+external_plus_10pct,single_factor,external,10.0,VaR 95%,2793663.04,0.3739693917752092
+external_plus_10pct,single_factor,external,10.0,TVaR 95%,2919214.07,0.23033673241131503
+external_plus_10pct,single_factor,external,10.0,VaR 99%,2998062.19,0.1455323569615944
+external_plus_10pct,single_factor,external,10.0,TVaR 99%,3108178.49,0.010032283559653226
+external_plus_10pct,single_factor,external,10.0,EVT VaR 99%,2998758.47,0.1578590279118346
+external_plus_10pct,single_factor,external,10.0,EVT TVaR 99%,3107325.95,-0.016405628584344988
+internal_plus_10pct,single_factor,internal,10.0,Expected Impact,2468229.81,5.073038459656205
+internal_plus_10pct,single_factor,internal,10.0,VaR 95%,2934344.53,5.4285373081869555
+internal_plus_10pct,single_factor,internal,10.0,TVaR 95%,3075146.87,5.584242501859657
+internal_plus_10pct,single_factor,internal,10.0,VaR 99%,3167583.35,5.808118967271262
+internal_plus_10pct,single_factor,internal,10.0,TVaR 99%,3285671.11,5.721107987031737
+internal_plus_10pct,single_factor,internal,10.0,EVT VaR 99%,3163674.63,5.666021712552628
+internal_plus_10pct,single_factor,internal,10.0,EVT TVaR 99%,3288838.91,5.824088242293601
+system_plus_10pct,single_factor,system,10.0,Expected Impact,2390158.63,1.7495326558223385
+system_plus_10pct,single_factor,system,10.0,VaR 95%,2830796.53,1.7081445357717329
+system_plus_10pct,single_factor,system,10.0,TVaR 95%,2956793.52,1.520615840897125
+system_plus_10pct,single_factor,system,10.0,VaR 99%,3037532.49,1.4639753895889493
+system_plus_10pct,single_factor,system,10.0,TVaR 99%,3142970.23,1.1295056509341213
+system_plus_10pct,single_factor,system,10.0,EVT VaR 99%,3036988.68,1.4347394509581965
+system_plus_10pct,single_factor,system,10.0,EVT TVaR 99%,3143030.89,1.1324626573499734
+cancel_plus_20pct,single_factor,cancel,20.0,Expected Impact,2463251.33,4.8611035667255384
+cancel_plus_20pct,single_factor,cancel,20.0,VaR 95%,2927883.96,5.196414447931982
+cancel_plus_20pct,single_factor,cancel,20.0,TVaR 95%,3059657.06,5.052404536231779
+cancel_plus_20pct,single_factor,cancel,20.0,VaR 99%,3147735.96,5.1451482510279645
+cancel_plus_20pct,single_factor,cancel,20.0,TVaR 99%,3259511.37,4.87938140976252
+cancel_plus_20pct,single_factor,cancel,20.0,EVT VaR 99%,3142686.54,4.965024222919824
+cancel_plus_20pct,single_factor,cancel,20.0,EVT TVaR 99%,3259237.21,4.8716022742527025
+divert_plus_20pct,single_factor,divert,20.0,Expected Impact,2363894.64,0.6314693295496524
+divert_plus_20pct,single_factor,divert,20.0,VaR 95%,2800215.84,0.6094059985573951
+divert_plus_20pct,single_factor,divert,20.0,TVaR 95%,2925988.14,0.4629223876143798
+divert_plus_20pct,single_factor,divert,20.0,VaR 99%,3003431.84,0.32489703445701
+divert_plus_20pct,single_factor,divert,20.0,TVaR 99%,3110444.6,0.08294757300883937
+divert_plus_20pct,single_factor,divert,20.0,EVT VaR 99%,3004957.76,0.36491392082993634
+divert_plus_20pct,single_factor,divert,20.0,EVT TVaR 99%,3116674.01,0.2843843928807719
+external_plus_20pct,single_factor,external,20.0,Expected Impact,2367060.95,0.7662597818233003
+external_plus_20pct,single_factor,external,20.0,VaR 95%,2805073.09,0.7839229162556012
+external_plus_20pct,single_factor,external,20.0,TVaR 95%,2933378.24,0.7166592475104415
+external_plus_20pct,single_factor,external,20.0,VaR 99%,3006082.55,0.41343981551050046
+external_plus_20pct,single_factor,external,20.0,TVaR 99%,3119433.19,0.37216814994027114
+external_plus_20pct,single_factor,external,20.0,EVT VaR 99%,3014496.78,0.6835150452560836
+external_plus_20pct,single_factor,external,20.0,EVT TVaR 99%,3125177.43,0.5579966594181214
+internal_plus_20pct,single_factor,internal,20.0,Expected Impact,2582782.81,9.949582663888547
+internal_plus_20pct,single_factor,internal,20.0,VaR 95%,3073233.94,10.418717293594835
+internal_plus_20pct,single_factor,internal,20.0,TVaR 95%,3224878.1,10.72521923134566
+internal_plus_20pct,single_factor,internal,20.0,VaR 99%,3323082.81,11.00233283476947
+internal_plus_20pct,single_factor,internal,20.0,TVaR 99%,3450350.04,11.019885119268462
+internal_plus_20pct,single_factor,internal,20.0,EVT VaR 99%,3321986.62,10.953606603258484
+internal_plus_20pct,single_factor,internal,20.0,EVT TVaR 99%,3446904.72,10.910129451143694
+system_plus_20pct,single_factor,system,20.0,Expected Impact,2434810.68,3.6503793873317205
+system_plus_20pct,single_factor,system,20.0,VaR 95%,2879685.02,3.464666968366228
+system_plus_20pct,single_factor,system,20.0,TVaR 95%,3007583.71,3.264481732309174
+system_plus_20pct,single_factor,system,20.0,VaR 99%,3088460.83,3.1651561517386253
+system_plus_20pct,single_factor,system,20.0,TVaR 99%,3200296.15,2.9740480825641495
+system_plus_20pct,single_factor,system,20.0,EVT VaR 99%,3088099.2,3.1418193335881806
+system_plus_20pct,single_factor,system,20.0,EVT TVaR 99%,3201495.46,3.013661458518296
+cancel_plus_30pct,single_factor,cancel,30.0,Expected Impact,2518808.24,7.226172377368285
+cancel_plus_30pct,single_factor,cancel,30.0,VaR 95%,2991597.42,7.485585615791972
+cancel_plus_30pct,single_factor,cancel,30.0,TVaR 95%,3129880.1,7.463491485252134
+cancel_plus_30pct,single_factor,cancel,30.0,VaR 99%,3210910.31,7.25538763604053
+cancel_plus_30pct,single_factor,cancel,30.0,TVaR 99%,3334804.48,7.3020435528975485
+cancel_plus_30pct,single_factor,cancel,30.0,EVT VaR 99%,3216839.28,7.441709075585992
+cancel_plus_30pct,single_factor,cancel,30.0,EVT TVaR 99%,3339505.05,7.454359051226704
+divert_plus_30pct,single_factor,divert,30.0,Expected Impact,2372241.08,0.9867789557311817
+divert_plus_30pct,single_factor,divert,30.0,VaR 95%,2811212.39,1.0045028149276163
+divert_plus_30pct,single_factor,divert,30.0,TVaR 95%,2937930.76,0.8729686519046841
+divert_plus_30pct,single_factor,divert,30.0,VaR 99%,3017178.93,0.7840968639338944
+divert_plus_30pct,single_factor,divert,30.0,TVaR 99%,3120498.61,0.4064495430257573
+divert_plus_30pct,single_factor,divert,30.0,EVT VaR 99%,3018149.55,0.8055167424189057
+divert_plus_30pct,single_factor,divert,30.0,EVT TVaR 99%,3126371.88,0.596430156971511
+external_plus_30pct,single_factor,external,30.0,Expected Impact,2373508.45,1.0407311510304624
+external_plus_30pct,single_factor,external,30.0,VaR 95%,2806595.51,0.838622189680294
+external_plus_30pct,single_factor,external,30.0,TVaR 95%,2931500.48,0.6521869229088145
+external_plus_30pct,single_factor,external,30.0,VaR 99%,3009831.57,0.5386699074576251
+external_plus_30pct,single_factor,external,30.0,TVaR 99%,3117052.38,0.2955622260118074
+external_plus_30pct,single_factor,external,30.0,EVT VaR 99%,3010554.22,0.55183442721383
+external_plus_30pct,single_factor,external,30.0,EVT TVaR 99%,3118789.83,0.35246456600936127
+internal_plus_30pct,single_factor,internal,30.0,Expected Impact,2704947.34,15.150151228083875
+internal_plus_30pct,single_factor,internal,30.0,VaR 95%,3227906.27,15.97596435413316
+internal_plus_30pct,single_factor,internal,30.0,TVaR 95%,3383262.75,16.16330853280792
+internal_plus_30pct,single_factor,internal,30.0,VaR 99%,3481573.51,16.29646435014256
+internal_plus_30pct,single_factor,internal,30.0,TVaR 99%,3611554.04,16.20685147146111
+internal_plus_30pct,single_factor,internal,30.0,EVT VaR 99%,3482240.3,16.30604350363481
+internal_plus_30pct,single_factor,internal,30.0,EVT TVaR 99%,3612514.96,16.238925762297587
+system_plus_30pct,single_factor,system,30.0,Expected Impact,2479785.89,5.564983104909019
+system_plus_30pct,single_factor,system,30.0,VaR 95%,2931444.73,5.32434992686188
+system_plus_30pct,single_factor,system,30.0,TVaR 95%,3066391.65,5.283634657513948
+system_plus_30pct,single_factor,system,30.0,VaR 99%,3156866.7,5.450146199757316
+system_plus_30pct,single_factor,system,30.0,TVaR 99%,3264752.51,5.048022490797291
+system_plus_30pct,single_factor,system,30.0,EVT VaR 99%,3152177.91,5.282033848053708
+system_plus_30pct,single_factor,system,30.0,EVT TVaR 99%,3265599.09,5.076306782114071

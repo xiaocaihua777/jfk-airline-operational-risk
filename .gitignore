@@ -13,3 +13,10 @@ __pycache__/
 # Local caches
 .cache/
 tmp/
+
+# LaTeX temporary files
+*.aux
+*.log
+*.out
+*.synctex.gz
+texput.log
